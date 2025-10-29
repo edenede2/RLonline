@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Reversal Learning Task</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <!-- START SCREEN: enter participant ID and version -->
+  <div id="start-screen" class="screen visible">
+    <h1>Reversal Learning Task</h1>
+    <div class="form-row">
+      <label for="participant-id">Participant ID:</label>
+      <input type="text" id="participant-id" placeholder="e.g. 876" />
+    </div>
+    <div class="form-row">
+      <label for="version-select">Version:</label>
+      <select id="version-select">
+        <option value="1">Version 1</option>
+        <option value="2">Version 2</option>
+        <option value="3">Version 3</option>
+        <option value="4">Version 4</option>
+      </select>
+    </div>
+
+    <button id="start-btn">Start Instructions</button>
+  </div>
+
+  <!-- INSTRUCTIONS SCREEN -->
+  <div id="instructions-screen" class="screen hidden">
+    <div class="instruction-wrapper">
+      <img id="instr-image" class="instruction-image" src="" alt="instructions"/>
+    </div>
+    <button id="next-instr-btn">Next</button>
+  </div>
+
+  <!-- TASK SCREEN -->
+  <div id="task-screen" class="screen hidden">
+    <!-- Score in the corner -->
+    <div id="score-box">
+      Score: <span id="score-val">0</span>
+    </div>
+
+    <!-- Fixation cross / fixation image -->
+    <img id="fixation-img"
+         class="task-elem hidden"
+         src="/images/fixation.jpg"
+         alt="fixation" />
+
+    <!-- Choice images -->
+    <img id="left-img"
+         class="task-elem choice-img hidden"
+         src=""
+         alt="left choice"/>
+    <img id="right-img"
+         class="task-elem choice-img hidden"
+         src=""
+         alt="right choice"/>
+
+    <!-- Intermediate feedback prep screen (gotme.png) -->
+    <img id="gotme-img"
+         class="task-elem hidden"
+         src="/images/gotme.png"
+         alt="gotme" />
+
+    <!-- Feedback image (correct.png / incorrect.png) -->
+    <img id="feedback-img"
+         class="task-elem hidden"
+         src=""
+         alt="feedback" />
+
+    <!-- Block / phase message -->
+    <div id="block-msg" class="hidden"></div>
+  </div>
+
+  <!-- END SCREEN -->
+  <div id="end-screen" class="screen hidden">
+    <div class="end-wrapper">
+      <img id="thankyou-img"
+           src="/images/blank.jpg"
+           alt="thank you"
+           class="thankyou-image"/>
+      <h2>Thank you!</h2>
+      <p>Your final score: <span id="final-score"></span></p>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
