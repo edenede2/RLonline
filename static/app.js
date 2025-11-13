@@ -137,7 +137,6 @@ const thankyouImgEl = document.getElementById("thankyou-img"); // re-using blank
 
 const startBtn      = document.getElementById("start-btn");
 const partIdInput   = document.getElementById("participant-id");
-const versionSelect = document.getElementById("version-select");
 
 /* =======================
    SCREEN HELPERS
@@ -207,23 +206,55 @@ function generateTrialsForBlock(highSet) {
   const imgsAll = [0,1,2,3];
   const lowSet = imgsAll.filter(x => !highSet.includes(x));
 
-  // all unique (high x low) pairs:
+  // Helper function to check if two images can appear together
+  // Images 0,1 (exp1.png, exp2.png) should never appear with images 2,3 (exp3.png, exp4.png)
+  function canPairImages(img1, img2) {
+    const group1 = [0, 1]; // exp1.png, exp2.png
+    const group2 = [2, 3]; // exp3.png, exp4.png
+    
+    const img1InGroup1 = group1.includes(img1);
+    const img1InGroup2 = group2.includes(img1);
+    const img2InGroup1 = group1.includes(img2);
+    const img2InGroup2 = group2.includes(img2);
+    
+    // Both must be in the same group
+    return (img1InGroup1 && img2InGroup1) || (img1InGroup2 && img2InGroup2);
+  }
+
+  // all unique (high x low) pairs that satisfy the constraint:
   let basePairs = [];
   highSet.forEach(h => {
     lowSet.forEach(l => {
-      basePairs.push({h, l});
+      if (canPairImages(h, l)) {
+        basePairs.push({h, l});
+      }
     });
   });
-  // basePairs now has length 4 (2 highs x 2 lows)
+  // basePairs will have valid pairs only
 
-  // Repeat each pair 5 times => 20 trials
+  // If we have no valid pairs, throw an error
+  if (basePairs.length === 0) {
+    throw new Error(`No valid pairings found for highSet: ${highSet}. Images 0-1 cannot pair with images 2-3.`);
+  }
+
+  // Repeat each pair to reach 20 trials total
   let trials = [];
-  for (let rep = 0; rep < (TRIALS_PER_BLOCK / basePairs.length); rep++) {
+  const repsPerPair = Math.floor(TRIALS_PER_BLOCK / basePairs.length);
+  for (let rep = 0; rep < repsPerPair; rep++) {
     basePairs.forEach(p => {
       trials.push({
         highImg: p.h,
         lowImg: p.l
       });
+    });
+  }
+  
+  // Add extra trials if needed to reach exactly 20
+  while (trials.length < TRIALS_PER_BLOCK) {
+    const p = basePairs[trials.length % basePairs.length];
+    trials.push({
+      highImg: p.h,
+      lowImg: p.l
     });
   }
 
@@ -872,15 +903,10 @@ nextInstrBtn.addEventListener("click", () => {
 
 startBtn.addEventListener("click", () => {
   const pid = partIdInput.value.trim();
-  const ver = parseInt(versionSelect.value, 10);
+  const ver = 1; // Default to version 1
 
   if (!pid) {
     alert("Please enter Participant ID first.");
-    return;
-  }
-
-  if (!VERSION_MAP[ver]) {
-    alert("Version is invalid.");
     return;
   }
 
