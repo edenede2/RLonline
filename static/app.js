@@ -571,9 +571,33 @@ async function runSingleTrial(block, trialObj, trialNumber) {
   fixationImgEl.classList.add("hidden");
 
   // 2. Show choice images, wait for participant click
-  leftImgEl.src  = "/images/" + IMAGE_FILES[trialObj.leftImg];
-  rightImgEl.src = "/images/" + IMAGE_FILES[trialObj.rightImg];
-
+  // Preload both images first to ensure simultaneous display
+  const leftSrc = "/images/" + IMAGE_FILES[trialObj.leftImg];
+  const rightSrc = "/images/" + IMAGE_FILES[trialObj.rightImg];
+  
+  // Set sources but keep hidden
+  leftImgEl.src = leftSrc;
+  rightImgEl.src = rightSrc;
+  
+  // Wait for both images to load before displaying
+  await Promise.all([
+    new Promise((resolve) => {
+      if (leftImgEl.complete) {
+        resolve();
+      } else {
+        leftImgEl.onload = resolve;
+      }
+    }),
+    new Promise((resolve) => {
+      if (rightImgEl.complete) {
+        resolve();
+      } else {
+        rightImgEl.onload = resolve;
+      }
+    })
+  ]);
+  
+  // Now reveal both images simultaneously
   leftImgEl.classList.remove("hidden");
   rightImgEl.classList.remove("hidden");
 
