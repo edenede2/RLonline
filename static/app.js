@@ -532,20 +532,21 @@ async function showBlockIntro(block) {
   hideAllTaskElems();
 
   // message content
-  let msg = "";
-  if (block.blockType === "learning") {
-    msg = "Learning Block " + block.blockNumber;
-  } else {
-    msg = "Reversal Block " + block.blockNumber;
-  }
-
-  blockMsgEl.textContent = msg;
-  blockMsgEl.classList.remove("hidden");
-
-  // short pause
-  await sleep(1000);
-
-  blockMsgEl.classList.add("hidden");
+  // Block messages hidden per user request
+  // let msg = "";
+  // if (block.blockType === "learning") {
+  //   msg = "Learning Block " + block.blockNumber;
+  // } else {
+  //   msg = "Reversal Block " + block.blockNumber;
+  // }
+  //
+  // blockMsgEl.textContent = msg;
+  // blockMsgEl.classList.remove("hidden");
+  //
+  // // short pause
+  // await sleep(1000);
+  //
+  // blockMsgEl.classList.add("hidden");
 }
 
 /*
