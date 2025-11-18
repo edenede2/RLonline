@@ -110,6 +110,11 @@ let state = {
   totalRewardsLearning: 0,
   totalRewardsReversal: 0,
   blockRewardCounts: {}, // blockNumber -> rewardCount
+  
+  // timing tracking
+  allTrialDurations: [], // all trial durations in seconds
+  learningTrialDurations: [], // learning phase durations
+  reversalTrialDurations: [], // reversal phase durations
 };
 
 /* =======================
@@ -131,7 +136,9 @@ const fixationImgEl = document.getElementById("fixation-img");
 const leftImgEl     = document.getElementById("left-img");
 const rightImgEl    = document.getElementById("right-img");
 const gotmeImgEl    = document.getElementById("gotme-img");
-const feedbackImgEl = document.getElementById("feedback-img");
+const feedbackContainerEl = document.getElementById("feedback-container");
+const feedbackTextImgEl = document.getElementById("feedback-text-img");
+const feedbackResultImgEl = document.getElementById("feedback-result-img");
 const blockMsgEl    = document.getElementById("block-msg");
 
 const finalScoreEl  = document.getElementById("final-score");
@@ -161,7 +168,7 @@ function hideAllTaskElems() {
   leftImgEl.classList.add("hidden");
   rightImgEl.classList.add("hidden");
   gotmeImgEl.classList.add("hidden");
-  feedbackImgEl.classList.add("hidden");
+  feedbackContainerEl.classList.add("hidden");
   blockMsgEl.classList.add("hidden");
 
   leftImgEl.classList.remove("dimmed");
@@ -307,7 +314,7 @@ function buildExperimentBlocks(version) {
       blockType: "learning",
       highSet: learningHigh.slice(),
       trials: generateTrialsForBlock(learningHigh),
-      summary: {}
+      summary: { trialDurations: [] }
     });
     blockCounter += 1;
   }
@@ -319,7 +326,7 @@ function buildExperimentBlocks(version) {
       blockType: "reversal",
       highSet: reversalHigh.slice(),
       trials: generateTrialsForBlock(reversalHigh),
-      summary: {}
+      summary: { trialDurations: [] }
     });
     blockCounter += 1;
   }
@@ -347,6 +354,18 @@ async function postJSON(url, payload) {
     // we don't block the experiment, but we log the error in console
     return {status: "error", message: err.toString()};
   }
+}
+
+/*
+Helper function to calculate mean and standard deviation
+*/
+function calculateStats(values) {
+  if (values.length === 0) return { mean: 0, std: 0 };
+  const mean = values.reduce((sum, val) => sum + val, 0) / values.length;
+  if (values.length === 1) return { mean, std: 0 };
+  const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / values.length;
+  const std = Math.sqrt(variance);
+  return { mean, std };
 }
 
 /*
@@ -439,6 +458,11 @@ async function runNextBlock() {
     if (trialResult.reward_received === 1) {
       block.summary.rewardCount += 1;
     }
+    
+    // store trial duration for block statistics
+    if (trialResult.trial_duration !== undefined) {
+      block.summary.trialDurations.push(trialResult.trial_duration);
+    }
 
     // track if participant chose a "correct" (high-prob) image
     if (trialResult.chosen_is_high === 1) {
@@ -479,6 +503,10 @@ async function runNextBlock() {
     }
   }
 
+  // Calculate block duration statistics
+  const blockDurations = block.summary.trialDurations || [];
+  const blockStats = calculateStats(blockDurations);
+
   const blockPayload = {
     sub_id: state.subId,
     block_number: block.blockNumber,
@@ -489,7 +517,9 @@ async function runNextBlock() {
     p_img3: probs[2],
     p_img4: probs[3],
     reward_count: block.summary.rewardCount,
-    learner_status: learnerStatus
+    learner_status: learnerStatus,
+    avg_trial_duration: blockStats.mean,
+    std_trial_duration: blockStats.std
   };
   await logBlockData(blockPayload);
 
@@ -610,8 +640,12 @@ async function runSingleTrial(block, trialObj, trialNumber) {
   // enable click
   leftImgEl.style.pointerEvents = "auto";
   rightImgEl.style.pointerEvents = "auto";
+  
+  // Record trial start time
+  const trialStartTime = performance.now();
+  const trialStartTimestamp = getTimestamp();
 
-  const clickResult = await waitForChoice(trialObj);
+  const clickResult = await waitForChoice(trialObj, trialStartTime);
 
   // clickResult = { chosenSide: "left"/"right", chosenIdx, otherIdx }
   // We'll "dim" chosen for 400ms
@@ -648,14 +682,16 @@ async function runSingleTrial(block, trialObj, trialNumber) {
     scoreValEl.textContent = state.score;
   }
 
-  // show feedback image (correct vs incorrect)
-  const feedbackFile = outcome.reward_received === 1 ? "correct.png" : "incorrect.png";
-  feedbackImgEl.src = "/images/" + feedbackFile;
-  feedbackImgEl.classList.remove("hidden");
+  // show both feedback images together (text + result)
+  const feedbackTextFile = outcome.reward_received === 1 ? "correct_text.png" : "incorrect_text.png";
+  const feedbackResultFile = outcome.reward_received === 1 ? "correct.png" : "incorrect.png";
+  feedbackTextImgEl.src = "/images/" + feedbackTextFile; // "קיבלת..." text
+  feedbackResultImgEl.src = "/images/" + feedbackResultFile; // smiley and amount
+  feedbackContainerEl.classList.remove("hidden");
 
   await sleep(T_FEEDBACK);
 
-  feedbackImgEl.classList.add("hidden");
+  feedbackContainerEl.classList.add("hidden");
 
   // 5. Log trial
   // build trial payload for Google Sheets
@@ -666,10 +702,20 @@ async function runSingleTrial(block, trialObj, trialNumber) {
   if (clickResult.chosenIdx === 2) selImg3 = 1;
   if (clickResult.chosenIdx === 3) selImg4 = 1;
 
+  // Store trial duration for summary statistics
+  state.allTrialDurations.push(clickResult.reactionTime);
+  if (block.blockType === "learning") {
+    state.learningTrialDurations.push(clickResult.reactionTime);
+  } else {
+    state.reversalTrialDurations.push(clickResult.reactionTime);
+  }
+
   // trial_type as required
   const trialPayload = {
     sub_id: state.subId,
     timestamp: getTimestamp(),
+    trial_start: trialStartTimestamp,
+    trial_duration: clickResult.reactionTime,
     block_number: block.blockNumber,
     block_type: block.blockType,
     trial_number: trialNumber,
@@ -698,7 +744,8 @@ async function runSingleTrial(block, trialObj, trialNumber) {
     chosen_img_index: clickResult.chosenIdx,
     left_image_idx: trialObj.leftImg,
     right_image_idx: trialObj.rightImg,
-    left_right_flip: trialObj.flipLR
+    left_right_flip: trialObj.flipLR,
+    trial_duration: clickResult.reactionTime
   };
 }
 
@@ -706,26 +753,30 @@ async function runSingleTrial(block, trialObj, trialNumber) {
 Wait for the participant to click left or right image.
 Resolve with { chosenSide, chosenIdx } where chosenIdx is the IMAGE_FILES index.
 */
-function waitForChoice(trialObj) {
+function waitForChoice(trialObj, startTime) {
   return new Promise(resolve => {
     function handleLeft() {
+      const endTime = performance.now();
       leftImgEl.style.pointerEvents = "none";
       rightImgEl.style.pointerEvents = "none";
       cleanup();
       resolve({
         chosenSide: "left",
         chosenIdx: trialObj.leftImg,
-        otherIdx: trialObj.rightImg
+        otherIdx: trialObj.rightImg,
+        reactionTime: (endTime - startTime) / 1000 // convert to seconds
       });
     }
     function handleRight() {
+      const endTime = performance.now();
       leftImgEl.style.pointerEvents = "none";
       rightImgEl.style.pointerEvents = "none";
       cleanup();
       resolve({
         chosenSide: "right",
         chosenIdx: trialObj.rightImg,
-        otherIdx: trialObj.leftImg
+        otherIdx: trialObj.leftImg,
+        reactionTime: (endTime - startTime) / 1000 // convert to seconds
       });
     }
     function cleanup() {
@@ -869,6 +920,11 @@ async function endExperiment() {
   //   0 otherwise.
   const learnerStatus = state.skipFourthLearning ? 1 : 0;
 
+  // Calculate duration statistics for learning, reversal, and total
+  const learningStats = calculateStats(state.learningTrialDurations);
+  const reversalStats = calculateStats(state.reversalTrialDurations);
+  const totalStats = calculateStats(state.allTrialDurations);
+
   const taskPayload = {
     sub_id: state.subId,
     timestamp: getTimestamp(),
@@ -880,7 +936,13 @@ async function endExperiment() {
     total_rewards: state.score,
     learning_rewards: state.totalRewardsLearning,
     reversal_rewards: state.totalRewardsReversal,
-    fourth_learning_block_present: fourthLearningBlockPresent
+    fourth_learning_block_present: fourthLearningBlockPresent,
+    avg_trial_duration_learning: learningStats.mean,
+    std_trial_duration_learning: learningStats.std,
+    avg_trial_duration_reversal: reversalStats.mean,
+    std_trial_duration_reversal: reversalStats.std,
+    avg_trial_duration_total: totalStats.mean,
+    std_trial_duration_total: totalStats.std
   };
 
   await logTaskData(taskPayload);
@@ -953,6 +1015,9 @@ startBtn.addEventListener("click", () => {
   state.totalRewardsLearning = 0;
   state.totalRewardsReversal = 0;
   state.blockRewardCounts = {};
+  state.allTrialDurations = [];
+  state.learningTrialDurations = [];
+  state.reversalTrialDurations = [];
 
   // move to phone flip screen
   showScreen(phoneFlipScreenEl);

@@ -75,11 +75,17 @@
          src="/images/gotme.png"
          alt="gotme" />
 
-    <!-- Feedback image (correct.png / incorrect.png) -->
-    <img id="feedback-img"
-         class="task-elem hidden"
-         src=""
-         alt="feedback" />
+    <!-- Combined feedback screen -->
+    <div id="feedback-container" class="task-elem hidden">
+      <img id="feedback-text-img"
+           class="feedback-text-img"
+           src=""
+           alt="feedback text" />
+      <img id="feedback-result-img"
+           class="feedback-result-img"
+           src=""
+           alt="feedback result" />
+    </div>
 
     <!-- Block / phase message -->
     <div id="block-msg" class="hidden"></div>
