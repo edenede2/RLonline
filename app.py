@@ -61,6 +61,8 @@ TASK_SHEET_NAME  = "TaskData"
 TRIAL_COLUMNS = [
     "sub_id",
     "timestamp",
+    "trial_start",
+    "trial_duration",
     "block_number",
     "block_type",
     "trial_number",
@@ -89,7 +91,9 @@ BLOCK_COLUMNS = [
     "p_img3",
     "p_img4",
     "reward_count",
-    "learner_status"
+    "learner_status",
+    "avg_trial_duration",
+    "std_trial_duration"
 ]
 
 TASK_COLUMNS = [
@@ -103,7 +107,13 @@ TASK_COLUMNS = [
     "total_rewards",
     "learning_rewards",
     "reversal_rewards",
-    "fourth_learning_block_present"
+    "fourth_learning_block_present",
+    "avg_trial_duration_learning",
+    "std_trial_duration_learning",
+    "avg_trial_duration_reversal",
+    "std_trial_duration_reversal",
+    "avg_trial_duration_total",
+    "std_trial_duration_total"
 ]
 
 
