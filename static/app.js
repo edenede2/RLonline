@@ -658,14 +658,9 @@ async function runSingleTrial(block, trialObj, trialNumber) {
   // keep both images visible w/ chosen dimmed 400ms
   await sleep(T_POST_CHOICE);
 
-  // 3. Hide both choice imgs, show gotme for 600ms
+  // 3. Hide both choice imgs
   leftImgEl.classList.add("hidden");
   rightImgEl.classList.add("hidden");
-
-  gotmeImgEl.classList.remove("hidden");
-  // scoreValEl stays with old score for now
-  await sleep(T_PRE_FEEDBACK);
-  gotmeImgEl.classList.add("hidden");
 
   // 4. Feedback: decide correct / incorrect with mislead prob
   const outcome = computeFeedbackOutcome(block, trialObj, clickResult);
