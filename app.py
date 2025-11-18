@@ -61,8 +61,6 @@ TASK_SHEET_NAME  = "TaskData"
 TRIAL_COLUMNS = [
     "sub_id",
     "timestamp",
-    "trial_start",
-    "trial_duration",
     "block_number",
     "block_type",
     "trial_number",
@@ -78,7 +76,9 @@ TRIAL_COLUMNS = [
     "left_image",
     "right_image",
     "left_right_flip",
-    "reward_received"
+    "reward_received",
+    "trial_start",
+    "trial_duration"
 ]
 
 BLOCK_COLUMNS = [

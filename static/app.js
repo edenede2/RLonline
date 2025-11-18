@@ -683,9 +683,8 @@ async function runSingleTrial(block, trialObj, trialNumber) {
   }
 
   // show both feedback images together (text + result)
-  const feedbackTextFile = outcome.reward_received === 1 ? "correct_text.png" : "incorrect_text.png";
+  feedbackTextImgEl.src = "/images/gotme.png"; // "קיבלת..." text (same for both)
   const feedbackResultFile = outcome.reward_received === 1 ? "correct.png" : "incorrect.png";
-  feedbackTextImgEl.src = "/images/" + feedbackTextFile; // "קיבלת..." text
   feedbackResultImgEl.src = "/images/" + feedbackResultFile; // smiley and amount
   feedbackContainerEl.classList.remove("hidden");
 
