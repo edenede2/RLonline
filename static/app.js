@@ -117,6 +117,7 @@ let state = {
    ======================= */
 
 const startScreenEl = document.getElementById("start-screen");
+const phoneFlipScreenEl = document.getElementById("phone-flip-screen");
 const instrScreenEl = document.getElementById("instructions-screen");
 const taskScreenEl  = document.getElementById("task-screen");
 const endScreenEl   = document.getElementById("end-screen");
@@ -137,13 +138,15 @@ const thankyouImgEl = document.getElementById("thankyou-img"); // re-using blank
 
 const startBtn      = document.getElementById("start-btn");
 const partIdInput   = document.getElementById("participant-id");
+const phoneFlipVideo = document.getElementById("phone-flip-video");
+const flipConfirmBtn = document.getElementById("flip-confirm-btn");
 
 /* =======================
    SCREEN HELPERS
    ======================= */
 
 function showScreen(screenEl) {
-  [startScreenEl, instrScreenEl, taskScreenEl, endScreenEl].forEach(s => {
+  [startScreenEl, phoneFlipScreenEl, instrScreenEl, taskScreenEl, endScreenEl].forEach(s => {
     s.classList.add("hidden");
     s.classList.remove("visible");
   });
@@ -949,6 +952,15 @@ startBtn.addEventListener("click", () => {
   state.totalRewardsReversal = 0;
   state.blockRewardCounts = {};
 
+  // move to phone flip screen
+  showScreen(phoneFlipScreenEl);
+});
+
+/* =======================
+   PHONE FLIP SCREEN HANDLER
+   ======================= */
+
+flipConfirmBtn.addEventListener("click", () => {
   // move to instructions
   startInstructions();
 });

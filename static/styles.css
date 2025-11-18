@@ -175,6 +175,29 @@ button:hover {
   border-radius: 10px;
 }
 
+/* Phone flip screen */
+.phone-flip-wrapper {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  width: 90%;
+  max-width: 600px;
+}
+.phone-flip-video {
+  width: 100%;
+  max-width: 500px;
+  height: auto;
+  border-radius: 10px;
+  margin-bottom: 2em;
+}
+#flip-confirm-btn {
+  font-size: 1.2rem;
+  padding: 1em 2em;
+  margin-top: 1em;
+}
+
 /* End screen */
 .end-wrapper {
   position: absolute;
