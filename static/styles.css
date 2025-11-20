@@ -76,21 +76,38 @@ button:hover {
 }
 
 /* Instruction images */
-.instruction-wrapper {
+.instruction-content {
   width: 100%;
-  height: calc(100vh - 80px);
+  height: 100vh;
   display: flex;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
   padding: 10px;
   box-sizing: border-box;
+  gap: 2em;
 }
+
+.instruction-wrapper {
+  flex-grow: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .instruction-image {
-  max-height: calc(100vh - 120px);
-  max-width: 90vw;
+  max-height: 80vh;
+  max-width: 70vw;
   object-fit: contain;
   border: 2px solid #444;
   border-radius: 8px;
+}
+
+#next-instr-btn {
+  flex-shrink: 0;
+  font-size: 1.2rem;
+  padding: 1em 2em;
+  align-self: center;
 }
 
 /* Task screen layout */
@@ -452,6 +469,23 @@ button:hover {
 }
 
 /* Responsive design for very small screens */
+@media (max-width: 600px) {
+  .instruction-content {
+    flex-direction: column;
+    gap: 1em;
+  }
+  
+  .instruction-image {
+    max-width: 90vw;
+    max-height: calc(100vh - 150px);
+  }
+  
+  #next-instr-btn {
+    width: 80%;
+    margin: 0 auto;
+  }
+}
+
 @media (max-height: 500px) {
   .form-row {
     margin: 0.5em auto;
@@ -489,12 +523,13 @@ button:hover {
     margin: 0.5em 0;
   }
   
-  .instruction-wrapper {
-    height: calc(100vh - 60px);
+  .instruction-content {
+    flex-direction: column;
+    gap: 0.5em;
   }
   
   .instruction-image {
-    max-height: calc(100vh - 100px);
+    max-height: 60vh;
   }
 }
 
