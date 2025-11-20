@@ -82,32 +82,35 @@ button:hover {
   display: flex;
   flex-direction: row;
   align-items: center;
-  justify-content: center;
-  padding: 10px;
+  justify-content: space-between;
+  padding: 10px 20px;
   box-sizing: border-box;
-  gap: 2em;
+  gap: 1em;
 }
 
 .instruction-wrapper {
   flex-grow: 1;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
 }
 
 .instruction-image {
-  max-height: 80vh;
-  max-width: 70vw;
+  max-height: 85vh;
+  max-width: 80vw;
   object-fit: contain;
   border: 2px solid #444;
   border-radius: 8px;
 }
 
 #next-instr-btn {
-  flex-shrink: 0;
+  position: absolute;
+  right: 2vw;
+  top: 50%;
+  transform: translateY(-50%);
   font-size: 1.2rem;
   padding: 1em 2em;
-  align-self: center;
+  z-index: 10;
 }
 
 /* Task screen layout */
@@ -141,9 +144,9 @@ button:hover {
 /* Left/right choice images positioned similarly to PsychoPy:
    ~0.5 height units left/right from center, slightly below center. */
 .choice-img {
-  width: 20vw;
-  max-width: min(300px, 25vh);
-  max-height: min(300px, 25vh);
+  width: 30vw;
+  max-width: min(450px, 35vh);
+  max-height: min(450px, 35vh);
   height: auto;
   border: 3px solid transparent;
   border-radius: 10px;
@@ -188,16 +191,16 @@ button:hover {
 }
 
 .feedback-text-img {
-  width: 35vw;
-  max-width: min(500px, 40vh);
-  max-height: min(500px, 40vh);
+  width: 45vw;
+  max-width: min(650px, 50vh);
+  max-height: min(650px, 50vh);
   height: auto;
 }
 
 .feedback-result-img {
-  width: 40vw;
-  max-width: min(600px, 45vh);
-  max-height: min(600px, 45vh);
+  width: 50vw;
+  max-width: min(750px, 55vh);
+  max-height: min(750px, 55vh);
   height: auto;
 }
 
@@ -472,7 +475,12 @@ button:hover {
 @media (max-width: 600px) {
   .instruction-content {
     flex-direction: column;
+    justify-content: center;
     gap: 1em;
+  }
+  
+  .instruction-wrapper {
+    justify-content: center;
   }
   
   .instruction-image {
@@ -481,8 +489,22 @@ button:hover {
   }
   
   #next-instr-btn {
+    position: static;
+    transform: none;
     width: 80%;
     margin: 0 auto;
+  }
+  
+  .choice-img {
+    width: 35vw;
+    max-width: min(250px, 30vh);
+    max-height: min(250px, 30vh);
+  }
+  
+  .feedback-result-img {
+    width: 60vw;
+    max-width: min(400px, 45vh);
+    max-height: min(400px, 45vh);
   }
 }
 
@@ -524,12 +546,19 @@ button:hover {
   }
   
   .instruction-content {
-    flex-direction: column;
-    gap: 0.5em;
+    flex-direction: row;
+    justify-content: space-between;
   }
   
   .instruction-image {
-    max-height: 60vh;
+    max-height: 80vh;
+    max-width: 75vw;
+  }
+  
+  #next-instr-btn {
+    position: static;
+    transform: none;
+    padding: 0.7em 1.5em;
   }
 }
 
