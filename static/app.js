@@ -301,17 +301,22 @@ and trials[].
 */
 function buildExperimentBlocks(version) {
   const mapConf = VERSION_MAP[version];
+  println("Version mapping:", mapConf);
   if (!mapConf) {
     throw new Error("Unknown version mapping");
   }
   const learningHigh = mapConf.learningHigh;
   const reversalHigh = mapConf.reversalHigh;
+  println("Learning high images:", learningHigh);
+  println("Reversal high images:", reversalHigh);
 
   let blocks = [];
   let blockCounter = 1;
 
   // Learning: 4 potential blocks
   for (let b = 0; b < MAX_LEARNING_BLOCKS; b++) {
+    println("Generating learning block", b+1);
+
     blocks.push({
       blockNumber: blockCounter,
       blockType: "learning",
