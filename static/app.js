@@ -123,7 +123,7 @@ let state = {
 
 const startScreenEl = document.getElementById("start-screen");
 const phoneFlipScreenEl = document.getElementById("phone-flip-screen");
-const mobileInstructionsScreenEl = document.getElementById("mobile-instructions-screen");
+// const mobileInstructionsScreenEl = document.getElementById("mobile-instructions-screen");
 const instrScreenEl = document.getElementById("instructions-screen");
 const taskScreenEl  = document.getElementById("task-screen");
 const endScreenEl   = document.getElementById("end-screen");
@@ -155,7 +155,7 @@ const mobileInstructionsBtn = document.getElementById("mobile-instructions-btn")
    ======================= */
 
 function showScreen(screenEl) {
-  [startScreenEl, phoneFlipScreenEl, mobileInstructionsScreenEl, instrScreenEl, taskScreenEl, endScreenEl].forEach(s => {
+  [startScreenEl, phoneFlipScreenEl, instrScreenEl, taskScreenEl, endScreenEl].forEach(s => {
     s.classList.add("hidden");
     s.classList.remove("visible");
   });
@@ -1021,10 +1021,17 @@ startBtn.addEventListener("click", () => {
    PHONE FLIP SCREEN HANDLER
    ======================= */
 
+// flipConfirmBtn.addEventListener("click", () => {
+//   // move to mobile instructions screen
+//   showScreen(mobileInstructionsScreenEl);
+// });
+
+
 flipConfirmBtn.addEventListener("click", () => {
-  // move to mobile instructions screen
-  showScreen(mobileInstructionsScreenEl);
+  // move to instructions
+  startInstructions();
 });
+
 
 /* =======================
    MOBILE INSTRUCTIONS SCREEN HANDLER
