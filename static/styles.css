@@ -198,9 +198,9 @@ button:hover {
 }
 
 .feedback-result-img {
-  width: 70vw;
-  max-width: min(1000px, 70vh);
-  max-height: min(1000px, 70vh);
+  width: 90vw;
+  max-width: min(1250px, 90vh);
+  max-height: min(1250px, 90vh);
   height: auto;
 }
 
