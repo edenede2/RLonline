@@ -1,9 +1,7 @@
 /* Basic reset-ish */
 html {
-  overflow: hidden;
-  height: 90%;
+  height: 100%;
   width: 100%;
-  position: fixed;
 }
 
 body {
@@ -13,10 +11,9 @@ body {
   padding: 0;
   font-family: Arial, sans-serif;
   text-align: center;
+  height: 100vh;
+  width: 100vw;
   overflow: hidden;
-  height: 90%;
-  width: 100%;
-  position: fixed;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -24,12 +21,14 @@ body {
 .screen {
   display: none;
   width: 100vw;
-  height: 90vh;
+  min-height: 100vh;
+  height: 100vh;
   position: fixed;
   top: 0;
   left: 0;
-  overflow: hidden;
+  overflow: auto;
   -webkit-overflow-scrolling: touch;
+  box-sizing: border-box;
 
   /* Try to mimic PsychoPy black background full-screen */
   background-color: black;
@@ -79,13 +78,15 @@ button:hover {
 /* Instruction images */
 .instruction-wrapper {
   width: 100%;
-  height: 80vh;
+  height: calc(100vh - 80px);
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 10px;
+  box-sizing: border-box;
 }
 .instruction-image {
-  max-height: 70vh;
+  max-height: calc(100vh - 120px);
   max-width: 90vw;
   object-fit: contain;
   border: 2px solid #444;
@@ -124,8 +125,8 @@ button:hover {
    ~0.5 height units left/right from center, slightly below center. */
 .choice-img {
   width: 20vw;
-  max-width: 300px;
-  max-height: 300px;
+  max-width: min(300px, 25vh);
+  max-height: min(300px, 25vh);
   height: auto;
   border: 3px solid transparent;
   border-radius: 10px;
@@ -145,16 +146,16 @@ button:hover {
 
 #fixation-img {
   width: 6vw;
-  max-width: 120px;
-  max-height: 120px;
+  max-width: min(120px, 15vh);
+  max-height: min(120px, 15vh);
   height: auto;
 }
 
 #gotme-img,
 #feedback-img {
   width: 40vw;
-  max-width: 600px;
-  max-height: 600px;
+  max-width: min(600px, 50vh);
+  max-height: min(600px, 50vh);
   height: auto;
   z-index: 30;
 }
@@ -171,13 +172,15 @@ button:hover {
 
 .feedback-text-img {
   width: 35vw;
-  max-width: 500px;
+  max-width: min(500px, 40vh);
+  max-height: min(500px, 40vh);
   height: auto;
 }
 
 .feedback-result-img {
   width: 40vw;
-  max-width: 600px;
+  max-width: min(600px, 45vh);
+  max-height: min(600px, 45vh);
   height: auto;
 }
 
@@ -206,17 +209,19 @@ button:hover {
   text-align: center;
   width: 90%;
   max-width: 600px;
-  max-height: 95vh;
+  max-height: 90vh;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  padding: 10px;
+  box-sizing: border-box;
 }
 .phone-flip-video {
   width: 100%;
   max-width: 400px;
-  max-height: 50vh;
+  max-height: min(40vh, 300px);
   object-fit: cover;
   border-radius: 10px;
   margin-bottom: 0.5em;
@@ -245,7 +250,10 @@ button:hover {
   text-align: center;
   width: 90%;
   max-width: 600px;
-  padding: 2em 1em;
+  max-height: 90vh;
+  padding: 1em;
+  box-sizing: border-box;
+  overflow-y: auto;
 }
 .mobile-instructions-text {
   color: white;
@@ -270,8 +278,8 @@ button:hover {
   text-align: center;
 }
 .thankyou-image {
-  max-width: 20vw;
-  max-height: 20vw;
+  max-width: min(20vw, 200px);
+  max-height: min(20vh, 200px);
   object-fit: contain;
   margin-bottom: 1em;
 }
@@ -283,4 +291,77 @@ button:hover {
 .dimmed {
   opacity: 0.5;
   border-color: yellow;
+}
+
+/* Responsive design for very small screens */
+@media (max-height: 500px) {
+  .form-row {
+    margin: 0.5em auto;
+  }
+  
+  .form-row label {
+    font-size: 0.9rem;
+    margin-bottom: 0.2em;
+  }
+  
+  .form-row input,
+  .form-row select {
+    padding: 0.3em;
+    font-size: 0.9rem;
+  }
+  
+  button {
+    padding: 0.5em 1em;
+    font-size: 0.9rem;
+  }
+  
+  .phone-flip-text,
+  .mobile-instructions-text {
+    font-size: 1rem;
+    line-height: 1.3;
+  }
+  
+  h1 {
+    font-size: 1.5rem;
+    margin: 0.5em 0;
+  }
+  
+  h2 {
+    font-size: 1.2rem;
+    margin: 0.5em 0;
+  }
+  
+  .instruction-wrapper {
+    height: calc(100vh - 60px);
+  }
+  
+  .instruction-image {
+    max-height: calc(100vh - 100px);
+  }
+}
+
+@media (max-width: 400px) {
+  .choice-img {
+    width: 25vw;
+    max-width: min(150px, 20vh);
+    max-height: min(150px, 20vh);
+  }
+  
+  #fixation-img {
+    width: 8vw;
+    max-width: min(80px, 10vh);
+    max-height: min(80px, 10vh);
+  }
+  
+  .feedback-text-img {
+    width: 40vw;
+    max-width: min(300px, 30vh);
+    max-height: min(300px, 30vh);
+  }
+  
+  .feedback-result-img {
+    width: 45vw;
+    max-width: min(350px, 35vh);
+    max-height: min(350px, 35vh);
+  }
 }
