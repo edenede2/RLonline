@@ -148,7 +148,10 @@ const startBtn      = document.getElementById("start-btn");
 const partIdInput   = document.getElementById("participant-id");
 const phoneFlipVideo = document.getElementById("phone-flip-video");
 const flipConfirmBtn = document.getElementById("flip-confirm-btn");
-const mobileInstructionsBtn = document.getElementById("mobile-instructions-btn");
+
+// MOBILE INSTRUCTIONS SCREEN ELEMENTS (Disabled due to ONLY MOBILE USAGE)
+// const mobileInstructionsBtn = document.getElementById("mobile-instructions-btn");
+
 
 /* =======================
    SCREEN HELPERS
@@ -1037,10 +1040,10 @@ flipConfirmBtn.addEventListener("click", () => {
    MOBILE INSTRUCTIONS SCREEN HANDLER
    ======================= */
 
-mobileInstructionsBtn.addEventListener("click", () => {
-  // move to instructions
-  startInstructions();
-});
+// mobileInstructionsBtn.addEventListener("click", () => {
+//   // move to instructions
+//   startInstructions();
+// });
 
 
 /************************************************************
