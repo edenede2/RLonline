@@ -94,15 +94,16 @@
         <div class="image-preview">
           <img id="confidence-current-img" src="" alt="Current Image" class="preview-img-large">
         </div>
-        <div class="slider-container">
-          <label class="slider-label">לא בטוח בכלל</label>
-          <input type="range" id="confidence-slider" class="confidence-slider" min="0" max="100" value="50">
-          <label class="slider-label">בטוח מאוד</label>
-          <span id="confidence-value" class="slider-value">50</span>
+        <div class="slider-and-button-container">
+          <div class="slider-container">
+            <label class="slider-label">לא בטוח בכלל</label>
+            <input type="range" id="confidence-slider" class="confidence-slider" min="0" max="100" value="50">
+            <label class="slider-label">בטוח מאוד</label>
+            <span id="confidence-value" class="slider-value">50</span>
+          </div>
+          <button id="submit-confidence-btn">המשך</button>
         </div>
       </div>
-
-      <button id="submit-confidence-btn">המשך</button>
     </div>
   </div>
 

@@ -301,7 +301,7 @@ button:hover {
 
 .confidence-item {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
   margin-bottom: 2em;
@@ -309,7 +309,7 @@ button:hover {
   background: rgba(255, 255, 255, 0.05);
   border-radius: 10px;
   border: 1px solid #444;
-  gap: 1.5em;
+  gap: 2em;
 }
 
 .image-preview {
@@ -330,7 +330,14 @@ button:hover {
   object-fit: contain;
   border: 3px solid #666;
   border-radius: 12px;
-  margin-bottom: 2em;
+}
+
+.slider-and-button-container {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 1.5em;
+  flex-grow: 1;
 }
 
 .slider-container {
@@ -384,10 +391,10 @@ button:hover {
 }
 
 #submit-confidence-btn {
-  display: block;
-  margin: 2em auto 0;
   font-size: 1.2rem;
   padding: 0.8em 2em;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 /* Responsive adjustments for confidence screen */
@@ -397,7 +404,17 @@ button:hover {
     gap: 1em;
   }
   
+  .slider-and-button-container {
+    flex-direction: column;
+    width: 100%;
+    gap: 1em;
+  }
+  
   .slider-container {
+    width: 100%;
+  }
+  
+  #submit-confidence-btn {
     width: 100%;
   }
   
