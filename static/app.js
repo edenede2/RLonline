@@ -460,6 +460,12 @@ Run the full experiment flow:
 */
 
 async function runExperiment() {
+  console.log("=== Starting Experiment ===");
+  console.log("Subject ID:", state.subId);
+  console.log("Version:", state.version);
+  console.log("Reversal Pair:", state.reversalPair);
+  console.log("Learning Pair:", state.learningPair);
+  console.log("Total blocks:", state.blocks.length);
   state.currentBlockIdx = 0;
   await runNextBlock();
 }
@@ -469,6 +475,7 @@ Show confidence rating screen and collect ratings for all 4 images.
 Shows one image at a time. Returns a promise that resolves with the ratings object.
 */
 async function showConfidenceRating() {
+  console.log("Showing confidence ratings...");
   const ratings = {};
   const images = [
     { id: 1, src: "/images/exp1.png" },
@@ -499,14 +506,19 @@ async function showConfidenceRating() {
     });
 
     ratings[`est_img${img.id}`] = rating;
+    console.log(`  Image ${img.id} confidence: ${rating}`);
   }
 
+  console.log("All confidence ratings collected:", ratings);
   return ratings;
 }
 
 async function runNextBlock() {
+  console.log("\n--- runNextBlock called, blockIdx:", state.currentBlockIdx);
+  
   // Check if we've exhausted blocks
   if (state.currentBlockIdx >= state.blocks.length) {
+    console.log("All blocks completed, ending experiment");
     // we're done with *all* pre-planned blocks (including that #4 learning
     // may have been skipped logically, but still "exists" in array if skip=false).
     await endExperiment();
@@ -514,6 +526,9 @@ async function runNextBlock() {
   }
 
   let block = state.blocks[state.currentBlockIdx];
+  console.log("Starting block:", block.blockNumber, "Type:", block.blockType);
+  console.log("High set:", block.highSet);
+  console.log("Number of trials:", block.trials.length);
 
   // special case: skip learning block #4 if criterion met
   if (block.blockType === "learning") {
@@ -523,6 +538,7 @@ async function runNextBlock() {
     // this is the 4th learning block (by "learningIndex" == 3).
     const learningIdx = getLearningIndexForCurrentBlock();
     if (learningIdx === 3 && state.skipFourthLearning) {
+      console.log("Skipping 4th learning block (criterion met)");
       // Skip this block and move on
       state.currentBlockIdx += 1;
       await runNextBlock();
@@ -603,6 +619,11 @@ async function runNextBlock() {
   const blockDurations = block.summary.trialDurations || [];
   const blockStats = calculateStats(blockDurations);
 
+  console.log("Block", block.blockNumber, "summary:");
+  console.log("  Rewards:", block.summary.rewardCount);
+  console.log("  Learner status:", learnerStatus);
+  console.log("  Avg trial duration:", blockStats.mean.toFixed(3), "s");
+
   // Show confidence rating screen and collect ratings
   showScreen(taskScreenEl); // go back to task screen to show confidence
   const confidenceRatings = await showConfidenceRating();
@@ -637,8 +658,15 @@ async function runNextBlock() {
   ) {
     const highAcount = correctCounts[highA] || 0;
     const highBcount = correctCounts[highB] || 0;
+    console.log("Checking learning criterion after block 3:");
+    console.log("  Image", highA, "correct count:", highAcount);
+    console.log("  Image", highB, "correct count:", highBcount);
+    console.log("  Criterion:", LEARNING_CRITERION);
     if (highAcount >= LEARNING_CRITERION && highBcount >= LEARNING_CRITERION) {
+      console.log("  ✓ Criterion met! Will skip 4th learning block");
       state.skipFourthLearning = true;
+    } else {
+      console.log("  ✗ Criterion not met, will run 4th learning block");
     }
   }
 
@@ -706,6 +734,7 @@ Returns trialResult object:
 Also logs /log_trial automatically.
 */
 async function runSingleTrial(block, trialObj, trialNumber) {
+  console.log(`  Trial ${trialNumber}: Left=${IMAGE_FILES[trialObj.leftImg]}, Right=${IMAGE_FILES[trialObj.rightImg]}, PairType=${trialObj.pair_type}`);
   hideAllTaskElems();
 
   // 1. Fixation
@@ -777,6 +806,8 @@ async function runSingleTrial(block, trialObj, trialNumber) {
   //   reward_received: 0/1,
   //   chosen_is_high: 0/1
   // }
+
+  console.log(`    Chose: ${IMAGE_FILES[clickResult.chosenIdx]}, Type: ${outcome.trial_type}, Reward: ${outcome.reward_received}, RT: ${clickResult.reactionTime.toFixed(3)}s`);
 
   // update score if win
   if (outcome.reward_received === 1) {
@@ -962,6 +993,7 @@ At end of ALL blocks:
  - show thank you screen
 */
 async function endExperiment() {
+  console.log("\n=== Ending Experiment ===");
   // figure out actual blocks that RAN
   // Because we might skip learning block #4.
   // We'll reconstruct how many learning / reversal blocks
@@ -1048,8 +1080,17 @@ async function endExperiment() {
     std_trial_duration_total: totalStats.std
   };
 
+  console.log("Task summary:");
+  console.log("  Total blocks run:", totalBlocksRun);
+  console.log("  Learning blocks:", learningCount);
+  console.log("  Reversal blocks:", reversalCount);
+  console.log("  Total score:", state.score);
+  console.log("  Learner status:", learnerStatus);
+  
   await logTaskData(taskPayload);
 
+  console.log("=== Experiment Complete ===");
+  
   // Show end / thank-you
   finalScoreEl.textContent = state.score;
   showScreen(endScreenEl);
