@@ -339,29 +339,42 @@ and trials[].
 */
 function buildExperimentBlocks(version) {
   const mapConf = VERSION_MAP[version];
-  // print to the console for debugging
-  console.log("Experiment version:", version);
-  console.log("Version mapping config:", mapConf);
   if (!mapConf) {
     throw new Error("Unknown version mapping");
   }
-  const learningHigh = mapConf.learningHigh;
-  const reversalHigh = mapConf.reversalHigh;
-  console.log("Learning high images:", learningHigh);
-  console.log("Reversal high images:", reversalHigh);
+
+  // Randomly assign which pair is reversal and which is learning
+  state.reversalPair = Math.random() < 0.5 ? "pair1" : "pair2";
+  state.learningPair = state.reversalPair === "pair1" ? "pair2" : "pair1";
+
+  // Build high sets for learning phase
+  // Both pairs use their version-defined correct images
+  const learningHigh = [mapConf.pair1Correct, mapConf.pair2Correct];
+
+  // Build high sets for reversal phase
+  // Reversal pair: switch to opposite image
+  // Learning pair: keep same correct image
+  let reversalHigh;
+  if (state.reversalPair === "pair1") {
+    // Pair 1 reverses, Pair 2 stays same
+    const pair1Reversed = PAIR_1.find(img => img !== mapConf.pair1Correct);
+    reversalHigh = [pair1Reversed, mapConf.pair2Correct];
+  } else {
+    // Pair 2 reverses, Pair 1 stays same
+    const pair2Reversed = PAIR_2.find(img => img !== mapConf.pair2Correct);
+    reversalHigh = [mapConf.pair1Correct, pair2Reversed];
+  }
 
   let blocks = [];
   let blockCounter = 1;
 
   // Learning: 4 potential blocks
   for (let b = 0; b < MAX_LEARNING_BLOCKS; b++) {
-    console.log("Generating learning block", b+1);
-
     blocks.push({
       blockNumber: blockCounter,
       blockType: "learning",
       highSet: learningHigh.slice(),
-      trials: generateTrialsForBlock(learningHigh),
+      trials: generateTrialsForBlock(learningHigh, "learning"),
       summary: { trialDurations: [] }
     });
     blockCounter += 1;
@@ -373,7 +386,7 @@ function buildExperimentBlocks(version) {
       blockNumber: blockCounter,
       blockType: "reversal",
       highSet: reversalHigh.slice(),
-      trials: generateTrialsForBlock(reversalHigh),
+      trials: generateTrialsForBlock(reversalHigh, "reversal"),
       summary: { trialDurations: [] }
     });
     blockCounter += 1;
