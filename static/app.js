@@ -165,14 +165,9 @@ const flipConfirmBtn = document.getElementById("flip-confirm-btn");
 
 // Confidence rating elements
 const submitConfidenceBtn = document.getElementById("submit-confidence-btn");
-const sliderImg1 = document.getElementById("slider-img1");
-const sliderImg2 = document.getElementById("slider-img2");
-const sliderImg3 = document.getElementById("slider-img3");
-const sliderImg4 = document.getElementById("slider-img4");
-const valueImg1 = document.getElementById("value-img1");
-const valueImg2 = document.getElementById("value-img2");
-const valueImg3 = document.getElementById("value-img3");
-const valueImg4 = document.getElementById("value-img4");
+const confidenceCurrentImg = document.getElementById("confidence-current-img");
+const confidenceSlider = document.getElementById("confidence-slider");
+const confidenceValue = document.getElementById("confidence-value");
 
 // MOBILE INSTRUCTIONS SCREEN ELEMENTS (Disabled due to ONLY MOBILE USAGE)
 // const mobileInstructionsBtn = document.getElementById("mobile-instructions-btn");
@@ -471,38 +466,42 @@ async function runExperiment() {
 
 /*
 Show confidence rating screen and collect ratings for all 4 images.
-Returns a promise that resolves with the ratings object.
+Shows one image at a time. Returns a promise that resolves with the ratings object.
 */
-function showConfidenceRating() {
-  return new Promise((resolve) => {
-    // Reset sliders to middle value (50)
-    sliderImg1.value = 50;
-    sliderImg2.value = 50;
-    sliderImg3.value = 50;
-    sliderImg4.value = 50;
-    valueImg1.textContent = "50";
-    valueImg2.textContent = "50";
-    valueImg3.textContent = "50";
-    valueImg4.textContent = "50";
+async function showConfidenceRating() {
+  const ratings = {};
+  const images = [
+    { id: 1, src: "/images/exp1.png" },
+    { id: 2, src: "/images/exp2.png" },
+    { id: 3, src: "/images/exp3.png" },
+    { id: 4, src: "/images/exp4.png" }
+  ];
+
+  for (const img of images) {
+    // Reset slider to middle value (50)
+    confidenceSlider.value = 50;
+    confidenceValue.textContent = "50";
+
+    // Set current image
+    confidenceCurrentImg.src = img.src;
 
     // Show confidence screen
     showScreen(confidenceScreenEl);
 
-    // Setup submit handler
-    const handleSubmit = () => {
-      const ratings = {
-        est_img1: parseInt(sliderImg1.value),
-        est_img2: parseInt(sliderImg2.value),
-        est_img3: parseInt(sliderImg3.value),
-        est_img4: parseInt(sliderImg4.value)
+    // Wait for user to submit rating
+    const rating = await new Promise((resolve) => {
+      const handleSubmit = () => {
+        const value = parseInt(confidenceSlider.value);
+        submitConfidenceBtn.removeEventListener("click", handleSubmit);
+        resolve(value);
       };
-      
-      submitConfidenceBtn.removeEventListener("click", handleSubmit);
-      resolve(ratings);
-    };
+      submitConfidenceBtn.addEventListener("click", handleSubmit);
+    });
 
-    submitConfidenceBtn.addEventListener("click", handleSubmit);
-  });
+    ratings[`est_img${img.id}`] = rating;
+  }
+
+  return ratings;
 }
 
 async function runNextBlock() {
@@ -785,15 +784,16 @@ async function runSingleTrial(block, trialObj, trialNumber) {
     scoreValEl.textContent = state.score;
   }
 
-  // show both feedback images together (text + result)
-  feedbackTextImgEl.src = "/images/gotme.png"; // "קיבלת..." text (same for both)
+  // show only feedback result image (smiley and amount)
   const feedbackResultFile = outcome.reward_received === 1 ? "correct.png" : "incorrect.png";
-  feedbackResultImgEl.src = "/images/" + feedbackResultFile; // smiley and amount
+  feedbackResultImgEl.src = "/images/" + feedbackResultFile;
+  feedbackTextImgEl.classList.add("hidden"); // hide the gotme text image
   feedbackContainerEl.classList.remove("hidden");
 
   await sleep(T_FEEDBACK);
 
   feedbackContainerEl.classList.add("hidden");
+  feedbackTextImgEl.classList.remove("hidden"); // restore for next time
 
   // 5. Log trial
   // build trial payload for Google Sheets
@@ -1157,21 +1157,9 @@ flipConfirmBtn.addEventListener("click", () => {
    CONFIDENCE SLIDER EVENT LISTENERS
    ======================= */
 
-// Update displayed values when sliders move
-sliderImg1.addEventListener("input", (e) => {
-  valueImg1.textContent = e.target.value;
-});
-
-sliderImg2.addEventListener("input", (e) => {
-  valueImg2.textContent = e.target.value;
-});
-
-sliderImg3.addEventListener("input", (e) => {
-  valueImg3.textContent = e.target.value;
-});
-
-sliderImg4.addEventListener("input", (e) => {
-  valueImg4.textContent = e.target.value;
+// Update displayed value when slider moves
+confidenceSlider.addEventListener("input", (e) => {
+  confidenceValue.textContent = e.target.value;
 });
 
 
