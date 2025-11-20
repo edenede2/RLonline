@@ -34,19 +34,28 @@ const INSTR_IMAGES = [
 ];
 
 /*
-Block mapping by version:
-We define which 2 images are "high reward" in LEARNING,
-and which 2 are "high reward" in REVERSAL.
-These sets come from the PsychoPy design.
-(Indices are 0-based for IMAGE_FILES.)
-NOTE: If your actual reversal_new.py uses a different mapping,
-update these arrays to match it exactly.
+Pair definitions:
+- Pair 1: images 0 and 1 (exp1.png, exp2.png)
+- Pair 2: images 2 and 3 (exp3.png, exp4.png)
+
+For each subject, we randomly assign:
+- One pair as "learning" (correct image stays same in reversal)
+- One pair as "reversal" (correct image switches in reversal)
+*/
+const PAIR_1 = [0, 1]; // exp1.png, exp2.png
+const PAIR_2 = [2, 3]; // exp3.png, exp4.png
+
+/*
+Version map stores which image in each pair is correct during learning phase.
+In reversal phase:
+- Learning pair: same correct image
+- Reversal pair: opposite image becomes correct
 */
 const VERSION_MAP = {
-  1: { learningHigh: [0, 2], reversalHigh: [1, 2] },
-  2: { learningHigh: [0, 2], reversalHigh: [0, 3] },
-  3: { learningHigh: [1, 3], reversalHigh: [1, 2] },
-  4: { learningHigh: [1, 3], reversalHigh: [0, 3] }
+  1: { pair1Correct: 0, pair2Correct: 2 }, // pair1: img0 correct, pair2: img2 correct
+  2: { pair1Correct: 0, pair2Correct: 3 }, // pair1: img0 correct, pair2: img3 correct
+  3: { pair1Correct: 1, pair2Correct: 2 }, // pair1: img1 correct, pair2: img2 correct
+  4: { pair1Correct: 1, pair2Correct: 3 }  // pair1: img1 correct, pair2: img3 correct
 };
 
 /*
@@ -65,12 +74,12 @@ const T_PRE_FEEDBACK = 600;
 const T_FEEDBACK = 1700;
 
 /*
-Chance of "misleading" feedback in PsychoPy was 0.25
+Chance of "misleading" feedback - 0.20 (20%)
 That means:
- - If you pick correct img: usually win (valid_win), except 25% = invalid_lose
- - If you pick wrong img: usually lose (valid_lose), except 25% = invalid_win
+ - If you pick correct img: 80% win (valid_win), 20% = invalid_lose
+ - If you pick wrong img: 80% lose (valid_lose), 20% = invalid_win
 */
-const MISLEAD_THRESHOLD = 0.25;
+const MISLEAD_THRESHOLD = 0.20;
 
 /*
 Number of trials per block.
@@ -97,6 +106,10 @@ let state = {
   subId: null,
   version: 1,
   score: 0,
+
+  // pair assignment (randomly determined per subject)
+  reversalPair: null, // "pair1" or "pair2" - which pair reverses
+  learningPair: null, // "pair1" or "pair2" - which pair stays same
 
   // experiment plan:
   blocks: [], // array of {blockNumber, blockType, highSet, trials: [...], summary: {...}}
@@ -126,6 +139,7 @@ const phoneFlipScreenEl = document.getElementById("phone-flip-screen");
 // const mobileInstructionsScreenEl = document.getElementById("mobile-instructions-screen");
 const instrScreenEl = document.getElementById("instructions-screen");
 const taskScreenEl  = document.getElementById("task-screen");
+const confidenceScreenEl = document.getElementById("confidence-screen");
 const endScreenEl   = document.getElementById("end-screen");
 
 const instrImageEl  = document.getElementById("instr-image");
@@ -149,6 +163,17 @@ const partIdInput   = document.getElementById("participant-id");
 const phoneFlipVideo = document.getElementById("phone-flip-video");
 const flipConfirmBtn = document.getElementById("flip-confirm-btn");
 
+// Confidence rating elements
+const submitConfidenceBtn = document.getElementById("submit-confidence-btn");
+const sliderImg1 = document.getElementById("slider-img1");
+const sliderImg2 = document.getElementById("slider-img2");
+const sliderImg3 = document.getElementById("slider-img3");
+const sliderImg4 = document.getElementById("slider-img4");
+const valueImg1 = document.getElementById("value-img1");
+const valueImg2 = document.getElementById("value-img2");
+const valueImg3 = document.getElementById("value-img3");
+const valueImg4 = document.getElementById("value-img4");
+
 // MOBILE INSTRUCTIONS SCREEN ELEMENTS (Disabled due to ONLY MOBILE USAGE)
 // const mobileInstructionsBtn = document.getElementById("mobile-instructions-btn");
 
@@ -158,7 +183,7 @@ const flipConfirmBtn = document.getElementById("flip-confirm-btn");
    ======================= */
 
 function showScreen(screenEl) {
-  [startScreenEl, phoneFlipScreenEl, instrScreenEl, taskScreenEl, endScreenEl].forEach(s => {
+  [startScreenEl, phoneFlipScreenEl, instrScreenEl, taskScreenEl, confidenceScreenEl, endScreenEl].forEach(s => {
     s.classList.add("hidden");
     s.classList.remove("visible");
   });
@@ -217,7 +242,7 @@ Return an array of objects:
   rightImg: number, // index actually shown on right for THIS TRIAL
 }
 */
-function generateTrialsForBlock(highSet) {
+function generateTrialsForBlock(highSet, blockType) {
   const imgsAll = [0,1,2,3];
   const lowSet = imgsAll.filter(x => !highSet.includes(x));
 
@@ -278,10 +303,23 @@ function generateTrialsForBlock(highSet) {
 
   // randomize left/right on each trial
   trials.forEach(tr => {
+    // Determine which pair this trial belongs to
+    const isPair1 = PAIR_1.includes(tr.highImg) && PAIR_1.includes(tr.lowImg);
+    const isPair2 = PAIR_2.includes(tr.highImg) && PAIR_2.includes(tr.lowImg);
+    
+    // Determine pair_type based on which pair this is and subject's assignment
+    if (isPair1) {
+      tr.pair_type = (state.reversalPair === "pair1") ? "reversal" : "learning";
+    } else if (isPair2) {
+      tr.pair_type = (state.reversalPair === "pair2") ? "reversal" : "learning";
+    } else {
+      tr.pair_type = "unknown";
+    }
+    
     if (Math.random() < 0.5) {
       tr.leftImg  = tr.highImg;
       tr.rightImg = tr.lowImg;
-      tr.flipLR   = 0; // 0 => not flipped from canonical "high-vs-low"? up to you
+      tr.flipLR   = 0;
     } else {
       tr.leftImg  = tr.lowImg;
       tr.rightImg = tr.highImg;
@@ -418,6 +456,42 @@ async function runExperiment() {
   await runNextBlock();
 }
 
+/*
+Show confidence rating screen and collect ratings for all 4 images.
+Returns a promise that resolves with the ratings object.
+*/
+function showConfidenceRating() {
+  return new Promise((resolve) => {
+    // Reset sliders to middle value (50)
+    sliderImg1.value = 50;
+    sliderImg2.value = 50;
+    sliderImg3.value = 50;
+    sliderImg4.value = 50;
+    valueImg1.textContent = "50";
+    valueImg2.textContent = "50";
+    valueImg3.textContent = "50";
+    valueImg4.textContent = "50";
+
+    // Show confidence screen
+    showScreen(confidenceScreenEl);
+
+    // Setup submit handler
+    const handleSubmit = () => {
+      const ratings = {
+        est_img1: parseInt(sliderImg1.value),
+        est_img2: parseInt(sliderImg2.value),
+        est_img3: parseInt(sliderImg3.value),
+        est_img4: parseInt(sliderImg4.value)
+      };
+      
+      submitConfidenceBtn.removeEventListener("click", handleSubmit);
+      resolve(ratings);
+    };
+
+    submitConfidenceBtn.addEventListener("click", handleSubmit);
+  });
+}
+
 async function runNextBlock() {
   // Check if we've exhausted blocks
   if (state.currentBlockIdx >= state.blocks.length) {
@@ -517,6 +591,10 @@ async function runNextBlock() {
   const blockDurations = block.summary.trialDurations || [];
   const blockStats = calculateStats(blockDurations);
 
+  // Show confidence rating screen and collect ratings
+  showScreen(taskScreenEl); // go back to task screen to show confidence
+  const confidenceRatings = await showConfidenceRating();
+
   const blockPayload = {
     sub_id: state.subId,
     block_number: block.blockNumber,
@@ -529,9 +607,16 @@ async function runNextBlock() {
     reward_count: block.summary.rewardCount,
     learner_status: learnerStatus,
     avg_trial_duration: blockStats.mean,
-    std_trial_duration: blockStats.std
+    std_trial_duration: blockStats.std,
+    est_img1: confidenceRatings.est_img1,
+    est_img2: confidenceRatings.est_img2,
+    est_img3: confidenceRatings.est_img3,
+    est_img4: confidenceRatings.est_img4
   };
   await logBlockData(blockPayload);
+  
+  // Return to task screen for next block
+  showScreen(taskScreenEl);
 
   // After block 3 of learning, decide if we skip 4th
   if (
@@ -723,6 +808,7 @@ async function runSingleTrial(block, trialObj, trialNumber) {
     block_number: block.blockNumber,
     block_type: block.blockType,
     trial_number: trialNumber,
+    pair_type: trialObj.pair_type,
     trial_type: outcome.trial_type,
     valid_win:      outcome.trial_type === "valid_win"      ? 1 : 0,
     valid_lose:     outcome.trial_type === "valid_lose"     ? 1 : 0,
@@ -1008,11 +1094,12 @@ startBtn.addEventListener("click", () => {
 
   // init state
   state.subId = pid;
-  state.version = ver;
+  // Randomly select version (1-4)
+  state.version = Math.floor(Math.random() * 4) + 1;
   state.score = 0;
   scoreValEl.textContent = "0";
 
-  state.blocks = buildExperimentBlocks(ver);
+  state.blocks = buildExperimentBlocks(state.version);
   state.currentBlockIdx = 0;
   state.currentTrialIdx = 0;
   state.skipFourthLearning = false;
@@ -1053,10 +1140,33 @@ flipConfirmBtn.addEventListener("click", () => {
 // });
 
 
+/* =======================
+   CONFIDENCE SLIDER EVENT LISTENERS
+   ======================= */
+
+// Update displayed values when sliders move
+sliderImg1.addEventListener("input", (e) => {
+  valueImg1.textContent = e.target.value;
+});
+
+sliderImg2.addEventListener("input", (e) => {
+  valueImg2.textContent = e.target.value;
+});
+
+sliderImg3.addEventListener("input", (e) => {
+  valueImg3.textContent = e.target.value;
+});
+
+sliderImg4.addEventListener("input", (e) => {
+  valueImg4.textContent = e.target.value;
+});
+
+
 /************************************************************
  * That's it.
  * After participant enters ID & version, we:
  *   - show instructions slides
  *   - runExperiment() which handles blocks/trials/logging
  *   - log to Google Sheets through Flask (/log_trial, /log_block, /log_task)
+ *   - after each block, show confidence rating screen for all 4 images
  ************************************************************/

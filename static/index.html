@@ -84,6 +84,64 @@
     <div id="block-msg" class="hidden"></div>
   </div>
 
+  <!-- CONFIDENCE RATING SCREEN -->
+  <div id="confidence-screen" class="screen hidden">
+    <div class="confidence-wrapper">
+      <h2 class="confidence-title">דרג את רמת הביטחון שלך לכל אחת מהתמונות</h2>
+      <p class="confidence-subtitle">עד כמה אתה בטוח שהתמונה הזו תיתן לך נקודה?</p>
+      
+      <div class="confidence-item">
+        <div class="image-preview">
+          <img src="/images/exp1.png" alt="Image 1" class="preview-img">
+        </div>
+        <div class="slider-container">
+          <label class="slider-label">לא בטוח בכלל</label>
+          <input type="range" id="slider-img1" class="confidence-slider" min="0" max="100" value="50">
+          <label class="slider-label">בטוח מאוד</label>
+          <span id="value-img1" class="slider-value">50</span>
+        </div>
+      </div>
+
+      <div class="confidence-item">
+        <div class="image-preview">
+          <img src="/images/exp2.png" alt="Image 2" class="preview-img">
+        </div>
+        <div class="slider-container">
+          <label class="slider-label">לא בטוח בכלל</label>
+          <input type="range" id="slider-img2" class="confidence-slider" min="0" max="100" value="50">
+          <label class="slider-label">בטוח מאוד</label>
+          <span id="value-img2" class="slider-value">50</span>
+        </div>
+      </div>
+
+      <div class="confidence-item">
+        <div class="image-preview">
+          <img src="/images/exp3.png" alt="Image 3" class="preview-img">
+        </div>
+        <div class="slider-container">
+          <label class="slider-label">לא בטוח בכלל</label>
+          <input type="range" id="slider-img3" class="confidence-slider" min="0" max="100" value="50">
+          <label class="slider-label">בטוח מאוד</label>
+          <span id="value-img3" class="slider-value">50</span>
+        </div>
+      </div>
+
+      <div class="confidence-item">
+        <div class="image-preview">
+          <img src="/images/exp4.png" alt="Image 4" class="preview-img">
+        </div>
+        <div class="slider-container">
+          <label class="slider-label">לא בטוח בכלל</label>
+          <input type="range" id="slider-img4" class="confidence-slider" min="0" max="100" value="50">
+          <label class="slider-label">בטוח מאוד</label>
+          <span id="value-img4" class="slider-value">50</span>
+        </div>
+      </div>
+
+      <button id="submit-confidence-btn">המשך</button>
+    </div>
+  </div>
+
   <!-- END SCREEN -->
   <div id="end-screen" class="screen hidden">
     <div class="end-wrapper">

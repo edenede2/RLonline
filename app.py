@@ -78,7 +78,8 @@ TRIAL_COLUMNS = [
     "left_right_flip",
     "reward_received",
     "trial_start",
-    "trial_duration"
+    "trial_duration",
+    "pair_type"
 ]
 
 BLOCK_COLUMNS = [
@@ -93,7 +94,11 @@ BLOCK_COLUMNS = [
     "reward_count",
     "learner_status",
     "avg_trial_duration",
-    "std_trial_duration"
+    "std_trial_duration",
+    "est_img1",
+    "est_img2",
+    "est_img3",
+    "est_img4"
 ]
 
 TASK_COLUMNS = [
