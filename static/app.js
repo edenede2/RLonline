@@ -128,6 +128,10 @@ let state = {
   allTrialDurations: [], // all trial durations in seconds
   learningTrialDurations: [], // learning phase durations
   reversalTrialDurations: [], // reversal phase durations
+  
+  // side selection tracking
+  totalLeftSelections: 0,
+  totalRightSelections: 0,
 };
 
 /* =======================
@@ -552,6 +556,8 @@ async function runNextBlock() {
   // Run all trials in this block
   state.currentTrialIdx = 0;
   block.summary.rewardCount = 0;
+  block.summary.leftSelections = 0;
+  block.summary.rightSelections = 0;
 
   // track per-high-image correct counts (for learning criterion check)
   const highA = block.highSet[0];
@@ -569,6 +575,15 @@ async function runNextBlock() {
     // update block summary
     if (trialResult.reward_received === 1) {
       block.summary.rewardCount += 1;
+    }
+    
+    // track side selections
+    if (trialResult.selected_side === "left") {
+      block.summary.leftSelections += 1;
+      state.totalLeftSelections += 1;
+    } else {
+      block.summary.rightSelections += 1;
+      state.totalRightSelections += 1;
     }
     
     // store trial duration for block statistics
@@ -628,6 +643,10 @@ async function runNextBlock() {
   showScreen(taskScreenEl); // go back to task screen to show confidence
   const confidenceRatings = await showConfidenceRating();
 
+  // Calculate left selection percentage
+  const totalSelections = block.summary.leftSelections + block.summary.rightSelections;
+  const leftPercent = totalSelections > 0 ? (block.summary.leftSelections / totalSelections) * 100 : 0;
+  
   const blockPayload = {
     sub_id: state.subId,
     block_number: block.blockNumber,
@@ -644,7 +663,11 @@ async function runNextBlock() {
     est_img1: confidenceRatings.est_img1,
     est_img2: confidenceRatings.est_img2,
     est_img3: confidenceRatings.est_img3,
-    est_img4: confidenceRatings.est_img4
+    est_img4: confidenceRatings.est_img4,
+    selected_left_count: block.summary.leftSelections,
+    selected_right_count: block.summary.rightSelections,
+    selected_left_percent: leftPercent,
+    version: state.version
   };
   await logBlockData(blockPayload);
   
@@ -843,6 +866,10 @@ async function runSingleTrial(block, trialObj, trialNumber) {
     state.reversalTrialDurations.push(clickResult.reactionTime);
   }
 
+  // Determine selected_side and correct_side
+  const selectedSide = clickResult.chosenSide; // "left" or "right"
+  const correctSide = block.highSet.includes(trialObj.leftImg) ? "left" : "right";
+  
   // trial_type as required
   const trialPayload = {
     sub_id: state.subId,
@@ -865,11 +892,17 @@ async function runSingleTrial(block, trialObj, trialNumber) {
     left_image: IMAGE_FILES[trialObj.leftImg],
     right_image: IMAGE_FILES[trialObj.rightImg],
     left_right_flip: trialObj.flipLR,
-    reward_received: outcome.reward_received
+    reward_received: outcome.reward_received,
+    selected_side: selectedSide,
+    correct_side: correctSide,
+    version: state.version
   };
 
   await logTrialData(trialPayload);
 
+  // Determine selected_side for return
+  const selectedSideReturn = clickResult.chosenSide;
+  
   // Return details needed to update learning criterion
   return {
     trial_type: outcome.trial_type,
@@ -879,7 +912,8 @@ async function runSingleTrial(block, trialObj, trialNumber) {
     left_image_idx: trialObj.leftImg,
     right_image_idx: trialObj.rightImg,
     left_right_flip: trialObj.flipLR,
-    trial_duration: clickResult.reactionTime
+    trial_duration: clickResult.reactionTime,
+    selected_side: selectedSideReturn
   };
 }
 
@@ -1059,6 +1093,10 @@ async function endExperiment() {
   const learningStats = calculateStats(state.learningTrialDurations);
   const reversalStats = calculateStats(state.reversalTrialDurations);
   const totalStats = calculateStats(state.allTrialDurations);
+  
+  // Calculate overall left selection percentage
+  const totalTaskSelections = state.totalLeftSelections + state.totalRightSelections;
+  const taskLeftPercent = totalTaskSelections > 0 ? (state.totalLeftSelections / totalTaskSelections) * 100 : 0;
 
   const taskPayload = {
     sub_id: state.subId,
@@ -1077,7 +1115,11 @@ async function endExperiment() {
     avg_trial_duration_reversal: reversalStats.mean,
     std_trial_duration_reversal: reversalStats.std,
     avg_trial_duration_total: totalStats.mean,
-    std_trial_duration_total: totalStats.std
+    std_trial_duration_total: totalStats.std,
+    selected_left_count: state.totalLeftSelections,
+    selected_right_count: state.totalRightSelections,
+    selected_left_percent: taskLeftPercent,
+    version: state.version
   };
 
   console.log("Task summary:");
@@ -1163,6 +1205,8 @@ startBtn.addEventListener("click", () => {
   state.allTrialDurations = [];
   state.learningTrialDurations = [];
   state.reversalTrialDurations = [];
+  state.totalLeftSelections = 0;
+  state.totalRightSelections = 0;
 
   // move to phone flip screen
   showScreen(phoneFlipScreenEl);

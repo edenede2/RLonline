@@ -79,7 +79,10 @@ TRIAL_COLUMNS = [
     "reward_received",
     "trial_start",
     "trial_duration",
-    "pair_type"
+    "pair_type",
+    "selected_side",
+    "correct_side",
+    "version"
 ]
 
 BLOCK_COLUMNS = [
@@ -98,7 +101,11 @@ BLOCK_COLUMNS = [
     "est_img1",
     "est_img2",
     "est_img3",
-    "est_img4"
+    "est_img4",
+    "selected_left_count",
+    "selected_right_count",
+    "selected_left_percent",
+    "version"
 ]
 
 TASK_COLUMNS = [
@@ -118,7 +125,11 @@ TASK_COLUMNS = [
     "avg_trial_duration_reversal",
     "std_trial_duration_reversal",
     "avg_trial_duration_total",
-    "std_trial_duration_total"
+    "std_trial_duration_total",
+    "selected_left_count",
+    "selected_right_count",
+    "selected_left_percent",
+    "version"
 ]
 
 
