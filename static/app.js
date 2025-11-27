@@ -571,6 +571,10 @@ async function runNextBlock() {
   let correctCounts = {};
   correctCounts[highA] = 0;
   correctCounts[highB] = 0;
+  
+  // Track observed rewards per image for calculating actual probabilities
+  let imageRewardCounts = {0: 0, 1: 0, 2: 0, 3: 0}; // times each image was rewarded
+  let imageChosenCounts = {0: 0, 1: 0, 2: 0, 3: 0}; // times each image was chosen
 
   while (state.currentTrialIdx < block.trials.length) {
     let trialObj = block.trials[state.currentTrialIdx];
@@ -586,6 +590,13 @@ async function runNextBlock() {
     // update block summary
     if (trialResult.reward_received === 1) {
       block.summary.rewardCount += 1;
+    }
+    
+    // Track per-image statistics
+    const chosenImgIdx = trialResult.chosen_img_index;
+    imageChosenCounts[chosenImgIdx] += 1;
+    if (trialResult.reward_received === 1) {
+      imageRewardCounts[chosenImgIdx] += 1;
     }
     
     // track side selections
@@ -627,8 +638,16 @@ async function runNextBlock() {
   // store block reward count for later "highest reward block"
   state.blockRewardCounts[block.blockNumber] = block.summary.rewardCount;
 
-  // send block summary to server
-  const probs = getProbabilitiesForImages(block.highSet);
+  // Calculate observed probabilities per image (rewards / times chosen)
+  let observedProbs = [0, 0, 0, 0];
+  for (let i = 0; i < 4; i++) {
+    if (imageChosenCounts[i] > 0) {
+      observedProbs[i] = imageRewardCounts[i] / imageChosenCounts[i];
+    } else {
+      observedProbs[i] = 0; // not chosen, no data
+    }
+  }
+  
   // Determine "learner_status" for this block: did they satisfy learning criterion?
   // We define: learner_status = 1 if both high images >=7 correct choices
   // Only meaningful in learning phase block >=3
@@ -653,6 +672,24 @@ async function runNextBlock() {
   // Show confidence rating screen and collect ratings
   showScreen(taskScreenEl); // go back to task screen to show confidence
   const confidenceRatings = await showConfidenceRating();
+  
+  // Map confidence ratings to pair-based estimates
+  // Determine which images are correct/wrong in each pair for THIS block
+  const mapConf = VERSION_MAP[state.version];
+  const pair1CorrectImg = block.blockType === "learning" ? 
+    mapConf.pair1Correct : 
+    (state.reversalPair === "pair1" ? PAIR_1.find(i => i !== mapConf.pair1Correct) : mapConf.pair1Correct);
+  const pair1WrongImg = PAIR_1.find(i => i !== pair1CorrectImg);
+  
+  const pair2CorrectImg = block.blockType === "learning" ? 
+    mapConf.pair2Correct : 
+    (state.reversalPair === "pair2" ? PAIR_2.find(i => i !== mapConf.pair2Correct) : mapConf.pair2Correct);
+  const pair2WrongImg = PAIR_2.find(i => i !== pair2CorrectImg);
+  
+  const est_correct_pair1 = confidenceRatings[`est_img${pair1CorrectImg + 1}`];
+  const est_wrong_pair1 = confidenceRatings[`est_img${pair1WrongImg + 1}`];
+  const est_correct_pair2 = confidenceRatings[`est_img${pair2CorrectImg + 1}`];
+  const est_wrong_pair2 = confidenceRatings[`est_img${pair2WrongImg + 1}`];
 
   // Calculate left selection percentage
   const totalSelections = block.summary.leftSelections + block.summary.rightSelections;
@@ -663,18 +700,18 @@ async function runNextBlock() {
     block_number: block.blockNumber,
     block_type: block.blockType,
     n_trials: block.summary.n_trials,
-    p_img1: probs[0],
-    p_img2: probs[1],
-    p_img3: probs[2],
-    p_img4: probs[3],
+    p_img1: observedProbs[0],
+    p_img2: observedProbs[1],
+    p_img3: observedProbs[2],
+    p_img4: observedProbs[3],
     reward_count: block.summary.rewardCount,
     learner_status: learnerStatus,
     avg_trial_duration: blockStats.mean,
     std_trial_duration: blockStats.std,
-    est_img1: confidenceRatings.est_img1,
-    est_img2: confidenceRatings.est_img2,
-    est_img3: confidenceRatings.est_img3,
-    est_img4: confidenceRatings.est_img4,
+    est_correct_pair1: est_correct_pair1,
+    est_wrong_pair1: est_wrong_pair1,
+    est_correct_pair2: est_correct_pair2,
+    est_wrong_pair2: est_wrong_pair2,
     selected_left_count: block.summary.leftSelections,
     selected_right_count: block.summary.rightSelections,
     selected_left_percent: leftPercent,

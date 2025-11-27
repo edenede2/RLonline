@@ -82,7 +82,13 @@ TRIAL_COLUMNS = [
     "pair_type",
     "selected_side",
     "correct_side",
-    "version"
+    "version",
+    "fixation_start",
+    "fixation_end",
+    "stimulus_start",
+    "stimulus_end",
+    "feedback_start",
+    "feedback_end"
 ]
 
 BLOCK_COLUMNS = [
@@ -98,10 +104,10 @@ BLOCK_COLUMNS = [
     "learner_status",
     "avg_trial_duration",
     "std_trial_duration",
-    "est_img1",
-    "est_img2",
-    "est_img3",
-    "est_img4",
+    "est_correct_pair1",
+    "est_wrong_pair1",
+    "est_correct_pair2",
+    "est_wrong_pair2",
     "selected_left_count",
     "selected_right_count",
     "selected_left_percent",
