@@ -198,6 +198,32 @@ def log_trial():
     return jsonify({"status": "ok"})
 
 
+@app.route("/log_trials_bulk", methods=["POST"])
+def log_trials_bulk():
+    """
+    Receive JSON array of trial data and append all to TrialData sheet.
+    Expected format: {"trials": [{trial1}, {trial2}, ...]}
+    """
+    data = request.get_json(force=True, silent=False)
+    trials = data.get("trials", [])
+
+    try:
+        ws = SPREADSHEET.worksheet(TRIAL_SHEET_NAME)
+        rows = []
+        for trial in trials:
+            if "timestamp" not in trial or not trial["timestamp"]:
+                trial["timestamp"] = server_timestamp_iso()
+            row_vals = [trial.get(col, "") for col in TRIAL_COLUMNS]
+            rows.append(row_vals)
+        
+        if rows:
+            ws.append_rows(rows, value_input_option="USER_ENTERED")
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+    return jsonify({"status": "ok", "rows_added": len(rows)})
+
+
 @app.route("/log_block", methods=["POST"])
 def log_block():
     """

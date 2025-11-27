@@ -171,7 +171,6 @@ const flipConfirmBtn = document.getElementById("flip-confirm-btn");
 const submitConfidenceBtn = document.getElementById("submit-confidence-btn");
 const confidenceCurrentImg = document.getElementById("confidence-current-img");
 const confidenceSlider = document.getElementById("confidence-slider");
-const confidenceValue = document.getElementById("confidence-value");
 
 // MOBILE INSTRUCTIONS SCREEN ELEMENTS (Disabled due to ONLY MOBILE USAGE)
 // const mobileInstructionsBtn = document.getElementById("mobile-instructions-btn");
@@ -436,6 +435,13 @@ async function logTrialData(trialPayload) {
 }
 
 /*
+Log multiple trials in bulk to /log_trials_bulk.
+*/
+async function logTrialsBulk(trialsArray) {
+  await postJSON("/log_trials_bulk", { trials: trialsArray });
+}
+
+/*
 Log block summary to /log_block.
 */
 async function logBlockData(blockPayload) {
@@ -491,7 +497,6 @@ async function showConfidenceRating() {
   for (const img of images) {
     // Reset slider to middle value (50)
     confidenceSlider.value = 50;
-    confidenceValue.textContent = "50";
 
     // Set current image
     confidenceCurrentImg.src = img.src;
@@ -558,6 +563,7 @@ async function runNextBlock() {
   block.summary.rewardCount = 0;
   block.summary.leftSelections = 0;
   block.summary.rightSelections = 0;
+  block.summary.trialPayloads = []; // Store trial data to send in bulk
 
   // track per-high-image correct counts (for learning criterion check)
   const highA = block.highSet[0];
@@ -571,6 +577,11 @@ async function runNextBlock() {
     const trialNumber = state.currentTrialIdx + 1;
 
     const trialResult = await runSingleTrial(block, trialObj, trialNumber);
+
+    // Store trial payload for bulk sending
+    if (trialResult.trialPayload) {
+      block.summary.trialPayloads.push(trialResult.trialPayload);
+    }
 
     // update block summary
     if (trialResult.reward_received === 1) {
@@ -669,6 +680,13 @@ async function runNextBlock() {
     selected_left_percent: leftPercent,
     version: state.version
   };
+  
+  // Send all trial data in bulk first
+  console.log(`Sending ${block.summary.trialPayloads.length} trial records in bulk...`);
+  await postJSON("/log_trials_bulk", { trials: block.summary.trialPayloads });
+  
+  // Then send block data
+  console.log("Sending block data...");
   await logBlockData(blockPayload);
   
   // Return to task screen for next block
@@ -898,12 +916,13 @@ async function runSingleTrial(block, trialObj, trialNumber) {
     version: state.version
   };
 
-  await logTrialData(trialPayload);
-
+  // Store trial payload to send in bulk after block
+  // (will be sent after estimation phase)
+  
   // Determine selected_side for return
   const selectedSideReturn = clickResult.chosenSide;
   
-  // Return details needed to update learning criterion
+  // Return details needed to update learning criterion and trial payload
   return {
     trial_type: outcome.trial_type,
     reward_received: outcome.reward_received,
@@ -913,7 +932,8 @@ async function runSingleTrial(block, trialObj, trialNumber) {
     right_image_idx: trialObj.rightImg,
     left_right_flip: trialObj.flipLR,
     trial_duration: clickResult.reactionTime,
-    selected_side: selectedSideReturn
+    selected_side: selectedSideReturn,
+    trialPayload: trialPayload // Include payload for bulk sending
   };
 }
 
@@ -1242,10 +1262,7 @@ flipConfirmBtn.addEventListener("click", () => {
    CONFIDENCE SLIDER EVENT LISTENERS
    ======================= */
 
-// Update displayed value when slider moves
-confidenceSlider.addEventListener("input", (e) => {
-  confidenceValue.textContent = e.target.value;
-});
+// Slider event listeners removed - no value display needed
 
 
 /************************************************************
