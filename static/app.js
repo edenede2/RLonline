@@ -129,6 +129,17 @@ let state = {
   learningTrialDurations: [], // learning phase durations
   reversalTrialDurations: [], // reversal phase durations
   
+  // phase duration tracking
+  allFixationDurations: [],
+  learningFixationDurations: [],
+  reversalFixationDurations: [],
+  allStimulusDurations: [],
+  learningStimulusDurations: [],
+  reversalStimulusDurations: [],
+  allFeedbackDurations: [],
+  learningFeedbackDurations: [],
+  reversalFeedbackDurations: [],
+  
   // side selection tracking
   totalLeftSelections: 0,
   totalRightSelections: 0,
@@ -564,6 +575,9 @@ async function runNextBlock() {
   block.summary.leftSelections = 0;
   block.summary.rightSelections = 0;
   block.summary.trialPayloads = []; // Store trial data to send in bulk
+  block.summary.fixationDurations = [];
+  block.summary.stimulusDurations = [];
+  block.summary.feedbackDurations = [];
 
   // track per-high-image correct counts (for learning criterion check)
   const highA = block.highSet[0];
@@ -611,6 +625,17 @@ async function runNextBlock() {
     // store trial duration for block statistics
     if (trialResult.trial_duration !== undefined) {
       block.summary.trialDurations.push(trialResult.trial_duration);
+    }
+    
+    // store phase durations for block statistics
+    if (trialResult.fixation_duration !== undefined) {
+      block.summary.fixationDurations.push(trialResult.fixation_duration);
+    }
+    if (trialResult.stimulus_duration !== undefined) {
+      block.summary.stimulusDurations.push(trialResult.stimulus_duration);
+    }
+    if (trialResult.feedback_duration !== undefined) {
+      block.summary.feedbackDurations.push(trialResult.feedback_duration);
     }
 
     // track if participant chose a "correct" (high-prob) image
@@ -663,11 +688,18 @@ async function runNextBlock() {
   // Calculate block duration statistics
   const blockDurations = block.summary.trialDurations || [];
   const blockStats = calculateStats(blockDurations);
+  
+  const fixationStats = calculateStats(block.summary.fixationDurations || []);
+  const stimulusStats = calculateStats(block.summary.stimulusDurations || []);
+  const feedbackStats = calculateStats(block.summary.feedbackDurations || []);
 
   console.log("Block", block.blockNumber, "summary:");
   console.log("  Rewards:", block.summary.rewardCount);
   console.log("  Learner status:", learnerStatus);
   console.log("  Avg trial duration:", blockStats.mean.toFixed(3), "s");
+  console.log("  Avg fixation duration:", fixationStats.mean.toFixed(3), "s");
+  console.log("  Avg stimulus duration:", stimulusStats.mean.toFixed(3), "s");
+  console.log("  Avg feedback duration:", feedbackStats.mean.toFixed(3), "s");
 
   // Show confidence rating screen and collect ratings
   showScreen(taskScreenEl); // go back to task screen to show confidence
@@ -708,6 +740,12 @@ async function runNextBlock() {
     learner_status: learnerStatus,
     avg_trial_duration: blockStats.mean,
     std_trial_duration: blockStats.std,
+    avg_fixation_duration: fixationStats.mean,
+    std_fixation_duration: fixationStats.std,
+    avg_stimulus_duration: stimulusStats.mean,
+    std_stimulus_duration: stimulusStats.std,
+    avg_feedback_duration: feedbackStats.mean,
+    std_feedback_duration: feedbackStats.std,
     est_correct_pair1: est_correct_pair1,
     est_wrong_pair1: est_wrong_pair1,
     est_correct_pair2: est_correct_pair2,
@@ -816,9 +854,14 @@ async function runSingleTrial(block, trialObj, trialNumber) {
   hideAllTaskElems();
 
   // 1. Fixation
+  const fixationStart = performance.now();
+  const fixationStartTimestamp = getTimestamp();
   fixationImgEl.classList.remove("hidden");
   await sleep(T_FIXATION);
   fixationImgEl.classList.add("hidden");
+  const fixationEnd = performance.now();
+  const fixationEndTimestamp = getTimestamp();
+  const fixationDuration = (fixationEnd - fixationStart) / 1000; // convert to seconds
 
   // 2. Show choice images, wait for participant click
   // Preload both images first to ensure simultaneous display
@@ -848,6 +891,8 @@ async function runSingleTrial(block, trialObj, trialNumber) {
   ]);
   
   // Now reveal both images simultaneously
+  const stimulusStart = performance.now();
+  const stimulusStartTimestamp = getTimestamp();
   leftImgEl.classList.remove("hidden");
   rightImgEl.classList.remove("hidden");
 
@@ -875,6 +920,9 @@ async function runSingleTrial(block, trialObj, trialNumber) {
   // 3. Hide both choice imgs
   leftImgEl.classList.add("hidden");
   rightImgEl.classList.add("hidden");
+  const stimulusEnd = performance.now();
+  const stimulusEndTimestamp = getTimestamp();
+  const stimulusDuration = (stimulusEnd - stimulusStart) / 1000; // convert to seconds
 
   // 4. Feedback: decide correct / incorrect with mislead prob
   const outcome = computeFeedbackOutcome(block, trialObj, clickResult);
@@ -894,6 +942,8 @@ async function runSingleTrial(block, trialObj, trialNumber) {
   }
 
   // show only feedback result image (smiley and amount)
+  const feedbackStart = performance.now();
+  const feedbackStartTimestamp = getTimestamp();
   const feedbackResultFile = outcome.reward_received === 1 ? "correct.png" : "incorrect.png";
   feedbackResultImgEl.src = "/images/" + feedbackResultFile;
   feedbackTextImgEl.classList.add("hidden"); // hide the gotme text image
@@ -903,6 +953,9 @@ async function runSingleTrial(block, trialObj, trialNumber) {
 
   feedbackContainerEl.classList.add("hidden");
   feedbackTextImgEl.classList.remove("hidden"); // restore for next time
+  const feedbackEnd = performance.now();
+  const feedbackEndTimestamp = getTimestamp();
+  const feedbackDuration = (feedbackEnd - feedbackStart) / 1000; // convert to seconds
 
   // 5. Log trial
   // build trial payload for Google Sheets
@@ -919,6 +972,20 @@ async function runSingleTrial(block, trialObj, trialNumber) {
     state.learningTrialDurations.push(clickResult.reactionTime);
   } else {
     state.reversalTrialDurations.push(clickResult.reactionTime);
+  }
+  
+  // Store phase durations for task-level statistics
+  state.allFixationDurations.push(fixationDuration);
+  state.allStimulusDurations.push(stimulusDuration);
+  state.allFeedbackDurations.push(feedbackDuration);
+  if (block.blockType === "learning") {
+    state.learningFixationDurations.push(fixationDuration);
+    state.learningStimulusDurations.push(stimulusDuration);
+    state.learningFeedbackDurations.push(feedbackDuration);
+  } else {
+    state.reversalFixationDurations.push(fixationDuration);
+    state.reversalStimulusDurations.push(stimulusDuration);
+    state.reversalFeedbackDurations.push(feedbackDuration);
   }
 
   // Determine selected_side and correct_side
@@ -950,7 +1017,16 @@ async function runSingleTrial(block, trialObj, trialNumber) {
     reward_received: outcome.reward_received,
     selected_side: selectedSide,
     correct_side: correctSide,
-    version: state.version
+    version: state.version,
+    fixation_start: fixationStartTimestamp,
+    fixation_end: fixationEndTimestamp,
+    fixation_duration: fixationDuration,
+    stimulus_start: stimulusStartTimestamp,
+    stimulus_end: stimulusEndTimestamp,
+    stimulus_duration: stimulusDuration,
+    feedback_start: feedbackStartTimestamp,
+    feedback_end: feedbackEndTimestamp,
+    feedback_duration: feedbackDuration
   };
 
   // Store trial payload to send in bulk after block
@@ -970,7 +1046,10 @@ async function runSingleTrial(block, trialObj, trialNumber) {
     left_right_flip: trialObj.flipLR,
     trial_duration: clickResult.reactionTime,
     selected_side: selectedSideReturn,
-    trialPayload: trialPayload // Include payload for bulk sending
+    trialPayload: trialPayload, // Include payload for bulk sending
+    fixation_duration: fixationDuration,
+    stimulus_duration: stimulusDuration,
+    feedback_duration: feedbackDuration
   };
 }
 
@@ -1151,6 +1230,19 @@ async function endExperiment() {
   const reversalStats = calculateStats(state.reversalTrialDurations);
   const totalStats = calculateStats(state.allTrialDurations);
   
+  // Calculate phase duration statistics
+  const learningFixationStats = calculateStats(state.learningFixationDurations);
+  const reversalFixationStats = calculateStats(state.reversalFixationDurations);
+  const totalFixationStats = calculateStats(state.allFixationDurations);
+  
+  const learningStimulusStats = calculateStats(state.learningStimulusDurations);
+  const reversalStimulusStats = calculateStats(state.reversalStimulusDurations);
+  const totalStimulusStats = calculateStats(state.allStimulusDurations);
+  
+  const learningFeedbackStats = calculateStats(state.learningFeedbackDurations);
+  const reversalFeedbackStats = calculateStats(state.reversalFeedbackDurations);
+  const totalFeedbackStats = calculateStats(state.allFeedbackDurations);
+  
   // Calculate overall left selection percentage
   const totalTaskSelections = state.totalLeftSelections + state.totalRightSelections;
   const taskLeftPercent = totalTaskSelections > 0 ? (state.totalLeftSelections / totalTaskSelections) * 100 : 0;
@@ -1173,6 +1265,24 @@ async function endExperiment() {
     std_trial_duration_reversal: reversalStats.std,
     avg_trial_duration_total: totalStats.mean,
     std_trial_duration_total: totalStats.std,
+    avg_fixation_duration_learning: learningFixationStats.mean,
+    std_fixation_duration_learning: learningFixationStats.std,
+    avg_fixation_duration_reversal: reversalFixationStats.mean,
+    std_fixation_duration_reversal: reversalFixationStats.std,
+    avg_fixation_duration_total: totalFixationStats.mean,
+    std_fixation_duration_total: totalFixationStats.std,
+    avg_stimulus_duration_learning: learningStimulusStats.mean,
+    std_stimulus_duration_learning: learningStimulusStats.std,
+    avg_stimulus_duration_reversal: reversalStimulusStats.mean,
+    std_stimulus_duration_reversal: reversalStimulusStats.std,
+    avg_stimulus_duration_total: totalStimulusStats.mean,
+    std_stimulus_duration_total: totalStimulusStats.std,
+    avg_feedback_duration_learning: learningFeedbackStats.mean,
+    std_feedback_duration_learning: learningFeedbackStats.std,
+    avg_feedback_duration_reversal: reversalFeedbackStats.mean,
+    std_feedback_duration_reversal: reversalFeedbackStats.std,
+    avg_feedback_duration_total: totalFeedbackStats.mean,
+    std_feedback_duration_total: totalFeedbackStats.std,
     selected_left_count: state.totalLeftSelections,
     selected_right_count: state.totalRightSelections,
     selected_left_percent: taskLeftPercent,
@@ -1262,6 +1372,15 @@ startBtn.addEventListener("click", () => {
   state.allTrialDurations = [];
   state.learningTrialDurations = [];
   state.reversalTrialDurations = [];
+  state.allFixationDurations = [];
+  state.learningFixationDurations = [];
+  state.reversalFixationDurations = [];
+  state.allStimulusDurations = [];
+  state.learningStimulusDurations = [];
+  state.reversalStimulusDurations = [];
+  state.allFeedbackDurations = [];
+  state.learningFeedbackDurations = [];
+  state.reversalFeedbackDurations = [];
   state.totalLeftSelections = 0;
   state.totalRightSelections = 0;
 
