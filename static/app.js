@@ -130,6 +130,9 @@ let state = {
   reversalTrialDurations: [], // reversal phase durations
   
   // phase duration tracking
+  allReactionDurations: [],
+  learningReactionDurations: [],
+  reversalReactionDurations: [],
   allFixationDurations: [],
   learningFixationDurations: [],
   reversalFixationDurations: [],
@@ -575,6 +578,7 @@ async function runNextBlock() {
   block.summary.leftSelections = 0;
   block.summary.rightSelections = 0;
   block.summary.trialPayloads = []; // Store trial data to send in bulk
+  block.summary.reactionDurations = [];
   block.summary.fixationDurations = [];
   block.summary.stimulusDurations = [];
   block.summary.feedbackDurations = [];
@@ -628,6 +632,9 @@ async function runNextBlock() {
     }
     
     // store phase durations for block statistics
+    if (trialResult.trial_duration !== undefined) {
+      block.summary.reactionDurations.push(trialResult.trial_duration);
+    }
     if (trialResult.fixation_duration !== undefined) {
       block.summary.fixationDurations.push(trialResult.fixation_duration);
     }
@@ -689,6 +696,7 @@ async function runNextBlock() {
   const blockDurations = block.summary.trialDurations || [];
   const blockStats = calculateStats(blockDurations);
   
+  const reactionStats = calculateStats(block.summary.reactionDurations || []);
   const fixationStats = calculateStats(block.summary.fixationDurations || []);
   const stimulusStats = calculateStats(block.summary.stimulusDurations || []);
   const feedbackStats = calculateStats(block.summary.feedbackDurations || []);
@@ -697,6 +705,7 @@ async function runNextBlock() {
   console.log("  Rewards:", block.summary.rewardCount);
   console.log("  Learner status:", learnerStatus);
   console.log("  Avg trial duration:", blockStats.mean.toFixed(3), "s");
+  console.log("  Avg reaction duration:", reactionStats.mean.toFixed(3), "s");
   console.log("  Avg fixation duration:", fixationStats.mean.toFixed(3), "s");
   console.log("  Avg stimulus duration:", stimulusStats.mean.toFixed(3), "s");
   console.log("  Avg feedback duration:", feedbackStats.mean.toFixed(3), "s");
@@ -740,6 +749,8 @@ async function runNextBlock() {
     learner_status: learnerStatus,
     avg_trial_duration: blockStats.mean,
     std_trial_duration: blockStats.std,
+    avg_reaction_duration: reactionStats.mean,
+    std_reaction_duration: reactionStats.std,
     avg_fixation_duration: fixationStats.mean,
     std_fixation_duration: fixationStats.std,
     avg_stimulus_duration: stimulusStats.mean,
@@ -975,14 +986,17 @@ async function runSingleTrial(block, trialObj, trialNumber) {
   }
   
   // Store phase durations for task-level statistics
+  state.allReactionDurations.push(clickResult.reactionTime);
   state.allFixationDurations.push(fixationDuration);
   state.allStimulusDurations.push(stimulusDuration);
   state.allFeedbackDurations.push(feedbackDuration);
   if (block.blockType === "learning") {
+    state.learningReactionDurations.push(clickResult.reactionTime);
     state.learningFixationDurations.push(fixationDuration);
     state.learningStimulusDurations.push(stimulusDuration);
     state.learningFeedbackDurations.push(feedbackDuration);
   } else {
+    state.reversalReactionDurations.push(clickResult.reactionTime);
     state.reversalFixationDurations.push(fixationDuration);
     state.reversalStimulusDurations.push(stimulusDuration);
     state.reversalFeedbackDurations.push(feedbackDuration);
@@ -1018,6 +1032,7 @@ async function runSingleTrial(block, trialObj, trialNumber) {
     selected_side: selectedSide,
     correct_side: correctSide,
     version: state.version,
+    reaction_duration: clickResult.reactionTime,
     fixation_start: fixationStartTimestamp,
     fixation_end: fixationEndTimestamp,
     fixation_duration: fixationDuration,
@@ -1231,6 +1246,10 @@ async function endExperiment() {
   const totalStats = calculateStats(state.allTrialDurations);
   
   // Calculate phase duration statistics
+  const learningReactionStats = calculateStats(state.learningReactionDurations);
+  const reversalReactionStats = calculateStats(state.reversalReactionDurations);
+  const totalReactionStats = calculateStats(state.allReactionDurations);
+  
   const learningFixationStats = calculateStats(state.learningFixationDurations);
   const reversalFixationStats = calculateStats(state.reversalFixationDurations);
   const totalFixationStats = calculateStats(state.allFixationDurations);
@@ -1265,6 +1284,12 @@ async function endExperiment() {
     std_trial_duration_reversal: reversalStats.std,
     avg_trial_duration_total: totalStats.mean,
     std_trial_duration_total: totalStats.std,
+    avg_reaction_duration_learning: learningReactionStats.mean,
+    std_reaction_duration_learning: learningReactionStats.std,
+    avg_reaction_duration_reversal: reversalReactionStats.mean,
+    std_reaction_duration_reversal: reversalReactionStats.std,
+    avg_reaction_duration_total: totalReactionStats.mean,
+    std_reaction_duration_total: totalReactionStats.std,
     avg_fixation_duration_learning: learningFixationStats.mean,
     std_fixation_duration_learning: learningFixationStats.std,
     avg_fixation_duration_reversal: reversalFixationStats.mean,
@@ -1372,6 +1397,9 @@ startBtn.addEventListener("click", () => {
   state.allTrialDurations = [];
   state.learningTrialDurations = [];
   state.reversalTrialDurations = [];
+  state.allReactionDurations = [];
+  state.learningReactionDurations = [];
+  state.reversalReactionDurations = [];
   state.allFixationDurations = [];
   state.learningFixationDurations = [];
   state.reversalFixationDurations = [];

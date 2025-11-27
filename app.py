@@ -83,6 +83,7 @@ TRIAL_COLUMNS = [
     "selected_side",
     "correct_side",
     "version",
+    "reaction_duration",
     "fixation_start",
     "fixation_end",
     "fixation_duration",
