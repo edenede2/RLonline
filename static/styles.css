@@ -119,6 +119,33 @@ button:hover {
   font-size: 0; /* helps with centering imgs side by side without text gaps */
 }
 
+/* Debug panel */
+.debug-panel {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  background: rgba(0, 0, 0, 0.85);
+  color: #00ff00;
+  padding: 15px;
+  border-radius: 8px;
+  font-family: monospace;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  z-index: 9999;
+  border: 2px solid #00ff00;
+  box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+  min-width: 250px;
+}
+
+.debug-panel div {
+  margin: 3px 0;
+}
+
+.debug-panel strong {
+  color: #00ffff;
+  margin-right: 5px;
+}
+
 /* Score box in top-right corner, like PsychoPy's score text */
 #score-box {
   position: absolute;
@@ -425,6 +452,14 @@ button:hover {
 
 /* Responsive adjustments for confidence screen */
 @media (max-width: 600px) {
+  .debug-panel {
+    font-size: 0.7rem;
+    padding: 10px;
+    min-width: 200px;
+    top: 5px;
+    left: 5px;
+  }
+  
   .confidence-item {
     flex-direction: column;
     gap: 1em;

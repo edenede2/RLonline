@@ -186,6 +186,16 @@ const submitConfidenceBtn = document.getElementById("submit-confidence-btn");
 const confidenceCurrentImg = document.getElementById("confidence-current-img");
 const confidenceSlider = document.getElementById("confidence-slider");
 
+// Debug info elements
+const debugVersionEl = document.getElementById("debug-version");
+const debugBlockEl = document.getElementById("debug-block");
+const debugBlockTypeEl = document.getElementById("debug-block-type");
+const debugTrialEl = document.getElementById("debug-trial");
+const debugScoreEl = document.getElementById("debug-score");
+const debugReversalPairEl = document.getElementById("debug-reversal-pair");
+const debugLearningPairEl = document.getElementById("debug-learning-pair");
+const debugHighSetEl = document.getElementById("debug-high-set");
+
 // MOBILE INSTRUCTIONS SCREEN ELEMENTS (Disabled due to ONLY MOBILE USAGE)
 // const mobileInstructionsBtn = document.getElementById("mobile-instructions-btn");
 
@@ -215,6 +225,22 @@ function hideAllTaskElems() {
   rightImgEl.classList.remove("dimmed");
   leftImgEl.style.pointerEvents = "none";
   rightImgEl.style.pointerEvents = "none";
+}
+
+function updateDebugInfo(block, trialNumber) {
+  debugVersionEl.textContent = state.version;
+  debugBlockEl.textContent = block ? block.blockNumber : "-";
+  debugBlockTypeEl.textContent = block ? block.blockType : "-";
+  debugTrialEl.textContent = trialNumber || "-";
+  debugScoreEl.textContent = state.score;
+  debugReversalPairEl.textContent = state.reversalPair || "-";
+  debugLearningPairEl.textContent = state.learningPair || "-";
+  if (block && block.highSet) {
+    const highSetStr = block.highSet.map(i => IMAGE_FILES[i]).join(", ");
+    debugHighSetEl.textContent = highSetStr;
+  } else {
+    debugHighSetEl.textContent = "-";
+  }
 }
 
 /* =======================
@@ -491,6 +517,10 @@ async function runExperiment() {
   console.log("Learning Pair:", state.learningPair);
   console.log("Total blocks:", state.blocks.length);
   state.currentBlockIdx = 0;
+  
+  // Initialize debug info
+  updateDebugInfo(null, null);
+  
   await runNextBlock();
 }
 
@@ -552,6 +582,9 @@ async function runNextBlock() {
   console.log("Starting block:", block.blockNumber, "Type:", block.blockType);
   console.log("High set:", block.highSet);
   console.log("Number of trials:", block.trials.length);
+  
+  // Update debug info for new block
+  updateDebugInfo(block, 0);
 
   // special case: skip learning block #4 if criterion met
   if (block.blockType === "learning") {
@@ -597,6 +630,9 @@ async function runNextBlock() {
   while (state.currentTrialIdx < block.trials.length) {
     let trialObj = block.trials[state.currentTrialIdx];
     const trialNumber = state.currentTrialIdx + 1;
+    
+    // Update debug info for current trial
+    updateDebugInfo(block, trialNumber);
 
     const trialResult = await runSingleTrial(block, trialObj, trialNumber);
 
@@ -950,6 +986,7 @@ async function runSingleTrial(block, trialObj, trialNumber) {
   if (outcome.reward_received === 1) {
     state.score += 1;
     scoreValEl.textContent = state.score;
+    debugScoreEl.textContent = state.score;
   }
 
   // show only feedback result image (smiley and amount)
