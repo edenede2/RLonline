@@ -228,15 +228,29 @@ function hideAllTaskElems() {
 }
 
 function updateDebugInfo(block, trialNumber) {
+  // Map image files to readable names
+  const imageNameMap = {
+    "exp1.png": "app_green",
+    "exp2.png": "app_purp",
+    "exp3.png": "orng_orng",
+    "exp4.png": "orng_purp"
+  };
+  
+  // Map pair names to readable names
+  const pairNameMap = {
+    "pair1": "apples",
+    "pair2": "orange"
+  };
+  
   debugVersionEl.textContent = state.version;
   debugBlockEl.textContent = block ? block.blockNumber : "-";
   debugBlockTypeEl.textContent = block ? block.blockType : "-";
   debugTrialEl.textContent = trialNumber || "-";
   debugScoreEl.textContent = state.score;
-  debugReversalPairEl.textContent = state.reversalPair || "-";
-  debugLearningPairEl.textContent = state.learningPair || "-";
+  debugReversalPairEl.textContent = state.reversalPair ? pairNameMap[state.reversalPair] : "-";
+  debugLearningPairEl.textContent = state.learningPair ? pairNameMap[state.learningPair] : "-";
   if (block && block.highSet) {
-    const highSetStr = block.highSet.map(i => IMAGE_FILES[i]).join(", ");
+    const highSetStr = block.highSet.map(i => imageNameMap[IMAGE_FILES[i]]).join(", ");
     debugHighSetEl.textContent = highSetStr;
   } else {
     debugHighSetEl.textContent = "-";
