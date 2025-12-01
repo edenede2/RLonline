@@ -559,16 +559,42 @@ async function showConfidenceRating() {
     // Set current image
     confidenceCurrentImg.src = img.src;
 
+    // Disable submit button initially
+    submitConfidenceBtn.disabled = true;
+    submitConfidenceBtn.style.opacity = "0.5";
+    submitConfidenceBtn.style.cursor = "not-allowed";
+
     // Show confidence screen
     showScreen(confidenceScreenEl);
 
     // Wait for user to submit rating
     const rating = await new Promise((resolve) => {
+      let hasInteracted = false;
+      
+      const handleSliderInteraction = () => {
+        if (!hasInteracted) {
+          hasInteracted = true;
+          submitConfidenceBtn.disabled = false;
+          submitConfidenceBtn.style.opacity = "1";
+          submitConfidenceBtn.style.cursor = "pointer";
+          // Remove the listener after first interaction
+          confidenceSlider.removeEventListener("input", handleSliderInteraction);
+          confidenceSlider.removeEventListener("change", handleSliderInteraction);
+        }
+      };
+      
       const handleSubmit = () => {
         const value = parseInt(confidenceSlider.value);
         submitConfidenceBtn.removeEventListener("click", handleSubmit);
+        confidenceSlider.removeEventListener("input", handleSliderInteraction);
+        confidenceSlider.removeEventListener("change", handleSliderInteraction);
         resolve(value);
       };
+      
+      // Listen for slider interaction
+      confidenceSlider.addEventListener("input", handleSliderInteraction);
+      confidenceSlider.addEventListener("change", handleSliderInteraction);
+      
       submitConfidenceBtn.addEventListener("click", handleSubmit);
     });
 
