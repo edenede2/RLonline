@@ -247,8 +247,8 @@ function updateDebugInfo(block, trialNumber) {
   debugBlockTypeEl.textContent = block ? block.blockType : "-";
   debugTrialEl.textContent = trialNumber || "-";
   debugScoreEl.textContent = state.score;
-  debugReversalPairEl.textContent = state.reversalPair ? pairNameMap[state.reversalPair] : "-";
-  debugLearningPairEl.textContent = state.learningPair ? pairNameMap[state.learningPair] : "-";
+  debugReversalPairEl.textContent = state.reversalPair ? pairNameMap[state.reversalPair] + " (reversed)" : "-";
+  debugLearningPairEl.textContent = state.learningPair ? pairNameMap[state.learningPair] + " (non-reversed)" : "-";
   if (block && block.highSet) {
     const highSetStr = block.highSet.map(i => imageNameMap[IMAGE_FILES[i]]).join(", ");
     debugHighSetEl.textContent = highSetStr;
@@ -283,6 +283,31 @@ function getTimestamp() {
 }
 
 /*
+Split ISO timestamp into date (yyyy-mm-dd) and time (hh:mm:ss.ms)
+Returns object with date and time properties
+*/
+function splitTimestamp(isoString) {
+  if (!isoString) return { date: "", time: "" };
+  
+  const date = new Date(isoString);
+  
+  // Format date as yyyy-mm-dd
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const dateStr = `${year}-${month}-${day}`;
+  
+  // Format time as hh:mm:ss.ms
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+  const milliseconds = String(date.getMilliseconds()).padStart(3, '0');
+  const timeStr = `${hours}:${minutes}:${seconds}.${milliseconds}`;
+  
+  return { date: dateStr, time: timeStr };
+}
+
+/*
 Generate 20 trials for a given block with a specified highSet (2 images that
 have 0.75 reward probability). We'll pair each high with each low repeatedly.
 
@@ -294,6 +319,25 @@ Return an array of objects:
   rightImg: number, // index actually shown on right for THIS TRIAL
 }
 */
+// Generate predetermined misleading schedule: 80% valid, 20% misleading
+// For 20 trials: 16 valid (no mislead), 4 misleading
+function generateMisleadingSchedule(numTrials) {
+  const numMisleading = Math.round(numTrials * MISLEAD_THRESHOLD);
+  const schedule = Array(numTrials).fill(0); // 0 = no mislead
+  
+  // Randomly select which trials will be misleading
+  const misleadingIndices = [];
+  while (misleadingIndices.length < numMisleading) {
+    const idx = Math.floor(Math.random() * numTrials);
+    if (!misleadingIndices.includes(idx)) {
+      misleadingIndices.push(idx);
+      schedule[idx] = 1; // 1 = misleading
+    }
+  }
+  
+  return schedule;
+}
+
 function generateTrialsForBlock(highSet, blockType) {
   const imgsAll = [0,1,2,3];
   const lowSet = imgsAll.filter(x => !highSet.includes(x));
@@ -312,13 +356,20 @@ function generateTrialsForBlock(highSet, blockType) {
     // Both must be in the same group
     return (img1InGroup1 && img2InGroup1) || (img1InGroup2 && img2InGroup2);
   }
+  
+  // Helper to identify which pair a trial belongs to
+  function getPairId(highImg, lowImg) {
+    if (PAIR_1.includes(highImg) && PAIR_1.includes(lowImg)) return "pair1";
+    if (PAIR_2.includes(highImg) && PAIR_2.includes(lowImg)) return "pair2";
+    return "unknown";
+  }
 
   // all unique (high x low) pairs that satisfy the constraint:
   let basePairs = [];
   highSet.forEach(h => {
     lowSet.forEach(l => {
       if (canPairImages(h, l)) {
-        basePairs.push({h, l});
+        basePairs.push({h, l, pairId: getPairId(h, l)});
       }
     });
   });
@@ -329,46 +380,114 @@ function generateTrialsForBlock(highSet, blockType) {
     throw new Error(`No valid pairings found for highSet: ${highSet}. Images 0-1 cannot pair with images 2-3.`);
   }
 
-  // Repeat each pair to reach 20 trials total
-  let trials = [];
-  const repsPerPair = Math.floor(TRIALS_PER_BLOCK / basePairs.length);
-  for (let rep = 0; rep < repsPerPair; rep++) {
-    basePairs.forEach(p => {
-      trials.push({
-        highImg: p.h,
-        lowImg: p.l
-      });
-    });
-  }
+  // Generate trials with constraints:
+  // 1. No pair appears 3 times in a row
+  // 2. After seeing a pair, 50% chance to see same pair, 50% chance to see other pair
+  //    Within the 50% same pair: 50% same sides, 50% flipped
+  //    Within the 50% other pair: 50% orientation 1, 50% orientation 2
   
-  // Add extra trials if needed to reach exactly 20
-  while (trials.length < TRIALS_PER_BLOCK) {
-    const p = basePairs[trials.length % basePairs.length];
+  let trials = [];
+  let pairCounts = {}; // Track how many times each pair has been used
+  basePairs.forEach(p => pairCounts[p.pairId] = 0);
+  
+  const totalTrialsNeeded = TRIALS_PER_BLOCK;
+  const trialsPerPair = totalTrialsNeeded / basePairs.length;
+  
+  // Generate first trial randomly
+  let lastPairId = null;
+  let consecutiveCount = 0;
+  
+  for (let i = 0; i < totalTrialsNeeded; i++) {
+    let availablePairs = [];
+    
+    if (i === 0) {
+      // First trial: any pair is fine
+      availablePairs = basePairs.slice();
+    } else {
+      // Determine next pair based on probability and constraints
+      const samePairProb = 0.5;
+      const shouldBeSamePair = Math.random() < samePairProb;
+      
+      if (shouldBeSamePair && consecutiveCount < 2) {
+        // Try to use same pair (if not hitting 3 in a row)
+        availablePairs = basePairs.filter(p => p.pairId === lastPairId);
+      } else if (consecutiveCount >= 2) {
+        // MUST switch pairs (hitting limit of 2 consecutive)
+        availablePairs = basePairs.filter(p => p.pairId !== lastPairId);
+      } else {
+        // Switch to other pair
+        availablePairs = basePairs.filter(p => p.pairId !== lastPairId);
+      }
+      
+      // If no available pairs (shouldn't happen), fall back to any pair
+      if (availablePairs.length === 0) {
+        availablePairs = basePairs.slice();
+      }
+    }
+    
+    // Select from available pairs, preferring those with fewer uses
+    availablePairs.sort((a, b) => pairCounts[a.pairId] - pairCounts[b.pairId]);
+    const selectedPair = availablePairs[0];
+    
+    // Create trial
     trials.push({
-      highImg: p.h,
-      lowImg: p.l
+      highImg: selectedPair.h,
+      lowImg: selectedPair.l,
+      pairId: selectedPair.pairId
     });
+    
+    // Update tracking
+    pairCounts[selectedPair.pairId]++;
+    
+    if (selectedPair.pairId === lastPairId) {
+      consecutiveCount++;
+    } else {
+      consecutiveCount = 1;
+      lastPairId = selectedPair.pairId;
+    }
   }
 
-  // shuffle trial order
-  shuffleArray(trials);
-
-  // randomize left/right on each trial
-  trials.forEach(tr => {
+  // Generate predetermined misleading schedule
+  const misleadingSchedule = generateMisleadingSchedule(trials.length);
+  
+  // Assign left/right orientation with proper probability
+  // For each trial after the first, if it's the same pair as previous:
+  //   50% chance same orientation, 50% chance flipped
+  // If different pair: random orientation
+  
+  trials.forEach((tr, idx) => {
     // Determine which pair this trial belongs to
     const isPair1 = PAIR_1.includes(tr.highImg) && PAIR_1.includes(tr.lowImg);
     const isPair2 = PAIR_2.includes(tr.highImg) && PAIR_2.includes(tr.lowImg);
     
     // Determine pair_type based on which pair this is and subject's assignment
     if (isPair1) {
-      tr.pair_type = (state.reversalPair === "pair1") ? "reversal" : "learning";
+      tr.pair_type = (state.reversalPair === "pair1") ? "reversed" : "non-reversed";
     } else if (isPair2) {
-      tr.pair_type = (state.reversalPair === "pair2") ? "reversal" : "learning";
+      tr.pair_type = (state.reversalPair === "pair2") ? "reversed" : "non-reversed";
     } else {
       tr.pair_type = "unknown";
     }
     
-    if (Math.random() < 0.5) {
+    // Attach predetermined misleading flag for this trial
+    tr.misleading = misleadingSchedule[idx];
+    
+    // Determine orientation
+    let flipLR;
+    if (idx > 0 && tr.pairId === trials[idx - 1].pairId) {
+      // Same pair as previous trial
+      // 50% chance to keep same orientation, 50% to flip
+      if (Math.random() < 0.5) {
+        flipLR = trials[idx - 1].flipLR; // Same orientation
+      } else {
+        flipLR = 1 - trials[idx - 1].flipLR; // Flipped
+      }
+    } else {
+      // Different pair or first trial: random orientation
+      flipLR = Math.random() < 0.5 ? 0 : 1;
+    }
+    
+    if (flipLR === 0) {
       tr.leftImg  = tr.highImg;
       tr.rightImg = tr.lowImg;
       tr.flipLR   = 0;
@@ -746,15 +865,8 @@ async function runNextBlock() {
   // store block reward count for later "highest reward block"
   state.blockRewardCounts[block.blockNumber] = block.summary.rewardCount;
 
-  // Calculate observed probabilities per image (rewards / times chosen)
-  let observedProbs = [0, 0, 0, 0];
-  for (let i = 0; i < 4; i++) {
-    if (imageChosenCounts[i] > 0) {
-      observedProbs[i] = imageRewardCounts[i] / imageChosenCounts[i];
-    } else {
-      observedProbs[i] = 0; // not chosen, no data
-    }
-  }
+  // Get expected probabilities per image (0.8 for high set, 0.2 for low set)
+  const expectedProbs = getProbabilitiesForImages(block.highSet);
   
   // Determine "learner_status" for this block: did they satisfy learning criterion?
   // We define: learner_status = 1 if both high images >=7 correct choices
@@ -817,10 +929,10 @@ async function runNextBlock() {
     block_number: block.blockNumber,
     block_type: block.blockType,
     n_trials: block.summary.n_trials,
-    p_img1: observedProbs[0],
-    p_img2: observedProbs[1],
-    p_img3: observedProbs[2],
-    p_img4: observedProbs[3],
+    p_img1: expectedProbs[0],
+    p_img2: expectedProbs[1],
+    p_img3: expectedProbs[2],
+    p_img4: expectedProbs[3],
     reward_count: block.summary.rewardCount,
     learner_status: learnerStatus,
     avg_trial_duration: blockStats.mean,
@@ -1083,6 +1195,14 @@ async function runSingleTrial(block, trialObj, trialNumber) {
   const selectedSide = clickResult.chosenSide; // "left" or "right"
   const correctSide = block.highSet.includes(trialObj.leftImg) ? "left" : "right";
   
+  // Split timestamps into date and time
+  const fixationStartSplit = splitTimestamp(fixationStartTimestamp);
+  const fixationEndSplit = splitTimestamp(fixationEndTimestamp);
+  const stimulusStartSplit = splitTimestamp(stimulusStartTimestamp);
+  const stimulusEndSplit = splitTimestamp(stimulusEndTimestamp);
+  const feedbackStartSplit = splitTimestamp(feedbackStartTimestamp);
+  const feedbackEndSplit = splitTimestamp(feedbackEndTimestamp);
+  
   // trial_type as required
   const trialPayload = {
     sub_id: state.subId,
@@ -1109,15 +1229,20 @@ async function runSingleTrial(block, trialObj, trialNumber) {
     selected_side: selectedSide,
     correct_side: correctSide,
     version: state.version,
-    reaction_duration: clickResult.reactionTime,
-    fixation_start: fixationStartTimestamp,
-    fixation_end: fixationEndTimestamp,
+    fixation_start_date: fixationStartSplit.date,
+    fixation_start_time: fixationStartSplit.time,
+    fixation_end_date: fixationEndSplit.date,
+    fixation_end_time: fixationEndSplit.time,
     fixation_duration: fixationDuration,
-    stimulus_start: stimulusStartTimestamp,
-    stimulus_end: stimulusEndTimestamp,
+    stimulus_start_date: stimulusStartSplit.date,
+    stimulus_start_time: stimulusStartSplit.time,
+    stimulus_end_date: stimulusEndSplit.date,
+    stimulus_end_time: stimulusEndSplit.time,
     stimulus_duration: stimulusDuration,
-    feedback_start: feedbackStartTimestamp,
-    feedback_end: feedbackEndTimestamp,
+    feedback_start_date: feedbackStartSplit.date,
+    feedback_start_time: feedbackStartSplit.time,
+    feedback_end_date: feedbackEndSplit.date,
+    feedback_end_time: feedbackEndSplit.time,
     feedback_duration: feedbackDuration
   };
 
@@ -1196,9 +1321,8 @@ function computeFeedbackOutcome(block, trialObj, clickResult) {
 
   const chosenIsHigh = highSet.includes(chosenIdx) ? 1 : 0;
 
-  // generate random to decide misleading
-  const r = Math.random();
-  const misleading = (r < MISLEAD_THRESHOLD) ? 1 : 0;
+  // Use predetermined misleading flag from trial object
+  const misleading = trialObj.misleading || 0;
 
   let trial_type = "";
   let reward_received = 0;
@@ -1243,7 +1367,7 @@ Return array [p_img1, p_img2, p_img3, p_img4] in SAME ORDER as IMAGE_FILES.
 function getProbabilitiesForImages(highSet) {
   let probs = [0,0,0,0];
   for (let i=0; i<4; i++) {
-    probs[i] = highSet.includes(i) ? 0.75 : 0.25;
+    probs[i] = highSet.includes(i) ? 0.8 : 0.2;
   }
   return probs;
 }
