@@ -280,6 +280,7 @@ def log_task():
     If a row with the same sub_id exists, it will be updated.
     Otherwise, a new row will be appended.
     Expected keys match TASK_COLUMNS.
+    Uses batch update for efficiency.
     """
     data = request.get_json(force=True, silent=False)
 
@@ -302,9 +303,19 @@ def log_task():
         row_vals = [data.get(col, "") for col in TASK_COLUMNS]
         
         if existing_row:
-            # Update existing row
-            for col_idx, val in enumerate(row_vals, start=1):
-                ws.update_cell(existing_row, col_idx, val)
+            # Batch update existing row (much faster than individual cell updates)
+            num_cols = len(TASK_COLUMNS)
+            end_col = chr(ord('A') + num_cols - 1) if num_cols <= 26 else 'A' + chr(ord('A') + num_cols - 27)
+            # Convert column number to letter(s)
+            def col_to_letter(col):
+                result = ""
+                while col > 0:
+                    col, remainder = divmod(col - 1, 26)
+                    result = chr(65 + remainder) + result
+                return result
+            end_col_letter = col_to_letter(num_cols)
+            cell_range = f"A{existing_row}:{end_col_letter}{existing_row}"
+            ws.update(cell_range, [row_vals], value_input_option="USER_ENTERED")
         else:
             # Append new row
             ws.append_row(row_vals, value_input_option="USER_ENTERED")

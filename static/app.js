@@ -186,6 +186,9 @@ const submitConfidenceBtn = document.getElementById("submit-confidence-btn");
 const confidenceCurrentImg = document.getElementById("confidence-current-img");
 const confidenceSlider = document.getElementById("confidence-slider");
 
+// Loading screen element
+const loadingScreenEl = document.getElementById("loading-screen");
+
 // Debug info elements
 const debugVersionEl = document.getElementById("debug-version");
 const debugBlockEl = document.getElementById("debug-block");
@@ -205,7 +208,7 @@ const debugHighSetEl = document.getElementById("debug-high-set");
    ======================= */
 
 function showScreen(screenEl) {
-  [startScreenEl, phoneFlipScreenEl, instrScreenEl, taskScreenEl, confidenceScreenEl, endScreenEl].forEach(s => {
+  [startScreenEl, phoneFlipScreenEl, instrScreenEl, taskScreenEl, confidenceScreenEl, endScreenEl, loadingScreenEl].forEach(s => {
     s.classList.add("hidden");
     s.classList.remove("visible");
   });
@@ -967,6 +970,9 @@ async function runNextBlock() {
     selected_right_count: block.summary.rightSelections,
     selected_left_percent: leftPercent
   };
+  
+  // Show loading screen while saving data
+  showScreen(loadingScreenEl);
   
   // Send all trial data in bulk first
   console.log(`Sending ${block.summary.trialPayloads.length} trial records in bulk...`);
