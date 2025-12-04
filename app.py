@@ -82,20 +82,13 @@ TRIAL_COLUMNS = [
     "pair_type",
     "selected_side",
     "correct_side",
-    "version",
-    "fixation_start_date",
     "fixation_start_time",
-    "fixation_end_date",
     "fixation_end_time",
     "fixation_duration",
-    "stimulus_start_date",
     "stimulus_start_time",
-    "stimulus_end_date",
     "stimulus_end_time",
     "stimulus_duration",
-    "feedback_start_date",
     "feedback_start_time",
-    "feedback_end_date",
     "feedback_end_time",
     "feedback_duration"
 ]
@@ -119,14 +112,13 @@ BLOCK_COLUMNS = [
     "std_stimulus_duration",
     "avg_feedback_duration",
     "std_feedback_duration",
-    "est_correct_pair1",
-    "est_wrong_pair1",
-    "est_correct_pair2",
-    "est_wrong_pair2",
+    "est_correct_reversed",
+    "est_wrong_reversed",
+    "est_correct_non_reversed",
+    "est_wrong_non_reversed",
     "selected_left_count",
     "selected_right_count",
-    "selected_left_percent",
-    "version"
+    "selected_left_percent"
 ]
 
 TASK_COLUMNS = [
@@ -168,7 +160,8 @@ TASK_COLUMNS = [
     "selected_left_count",
     "selected_right_count",
     "selected_left_percent",
-    "version"
+    "version",
+    "isFinished"
 ]
 
 

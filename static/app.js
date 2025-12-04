@@ -541,15 +541,23 @@ function buildExperimentBlocks(version) {
 
   // Learning: 4 potential blocks
   for (let b = 0; b < MAX_LEARNING_BLOCKS; b++) {
+    // The 4th learning block gets number 3.5 (optional block)
+    const blockNum = b === 3 ? 3.5 : blockCounter;
+    
     blocks.push({
-      blockNumber: blockCounter,
+      blockNumber: blockNum,
       blockType: "learning",
       highSet: learningHigh.slice(),
       trials: generateTrialsForBlock(learningHigh, "learning"),
       summary: { trialDurations: [] }
     });
-    blockCounter += 1;
+    
+    if (b !== 3) {
+      blockCounter += 1;
+    }
   }
+  
+  blockCounter = 4; // Start reversal blocks at 4
 
   // Reversal: 3 blocks
   for (let b = 0; b < REVERSAL_BLOCKS; b++) {
@@ -915,10 +923,16 @@ async function runNextBlock() {
     (state.reversalPair === "pair2" ? PAIR_2.find(i => i !== mapConf.pair2Correct) : mapConf.pair2Correct);
   const pair2WrongImg = PAIR_2.find(i => i !== pair2CorrectImg);
   
-  const est_correct_pair1 = confidenceRatings[`est_img${pair1CorrectImg + 1}`];
-  const est_wrong_pair1 = confidenceRatings[`est_img${pair1WrongImg + 1}`];
-  const est_correct_pair2 = confidenceRatings[`est_img${pair2CorrectImg + 1}`];
-  const est_wrong_pair2 = confidenceRatings[`est_img${pair2WrongImg + 1}`];
+  // Determine which pair is reversed and which is non-reversed
+  const reversedCorrectImg = state.reversalPair === "pair1" ? pair1CorrectImg : pair2CorrectImg;
+  const reversedWrongImg = state.reversalPair === "pair1" ? pair1WrongImg : pair2WrongImg;
+  const nonReversedCorrectImg = state.reversalPair === "pair1" ? pair2CorrectImg : pair1CorrectImg;
+  const nonReversedWrongImg = state.reversalPair === "pair1" ? pair2WrongImg : pair1WrongImg;
+  
+  const est_correct_reversed = confidenceRatings[`est_img${reversedCorrectImg + 1}`];
+  const est_wrong_reversed = confidenceRatings[`est_img${reversedWrongImg + 1}`];
+  const est_correct_non_reversed = confidenceRatings[`est_img${nonReversedCorrectImg + 1}`];
+  const est_wrong_non_reversed = confidenceRatings[`est_img${nonReversedWrongImg + 1}`];
 
   // Calculate left selection percentage
   const totalSelections = block.summary.leftSelections + block.summary.rightSelections;
@@ -945,14 +959,13 @@ async function runNextBlock() {
     std_stimulus_duration: stimulusStats.std,
     avg_feedback_duration: feedbackStats.mean,
     std_feedback_duration: feedbackStats.std,
-    est_correct_pair1: est_correct_pair1,
-    est_wrong_pair1: est_wrong_pair1,
-    est_correct_pair2: est_correct_pair2,
-    est_wrong_pair2: est_wrong_pair2,
+    est_correct_reversed: est_correct_reversed,
+    est_wrong_reversed: est_wrong_reversed,
+    est_correct_non_reversed: est_correct_non_reversed,
+    est_wrong_non_reversed: est_wrong_non_reversed,
     selected_left_count: block.summary.leftSelections,
     selected_right_count: block.summary.rightSelections,
-    selected_left_percent: leftPercent,
-    version: state.version
+    selected_left_percent: leftPercent
   };
   
   // Send all trial data in bulk first
@@ -962,6 +975,11 @@ async function runNextBlock() {
   // Then send block data
   console.log("Sending block data...");
   await logBlockData(blockPayload);
+  
+  // Update and send task data after each block
+  console.log("Updating task data...");
+  const taskPayload = buildTaskPayload(false); // isFinished = false for in-progress
+  await logTaskData(taskPayload);
   
   // Return to task screen for next block
   showScreen(taskScreenEl);
@@ -1195,7 +1213,7 @@ async function runSingleTrial(block, trialObj, trialNumber) {
   const selectedSide = clickResult.chosenSide; // "left" or "right"
   const correctSide = block.highSet.includes(trialObj.leftImg) ? "left" : "right";
   
-  // Split timestamps into date and time
+  // Split timestamps into date and time, but only keep time fields
   const fixationStartSplit = splitTimestamp(fixationStartTimestamp);
   const fixationEndSplit = splitTimestamp(fixationEndTimestamp);
   const stimulusStartSplit = splitTimestamp(stimulusStartTimestamp);
@@ -1228,20 +1246,13 @@ async function runSingleTrial(block, trialObj, trialNumber) {
     reward_received: outcome.reward_received,
     selected_side: selectedSide,
     correct_side: correctSide,
-    version: state.version,
-    fixation_start_date: fixationStartSplit.date,
     fixation_start_time: fixationStartSplit.time,
-    fixation_end_date: fixationEndSplit.date,
     fixation_end_time: fixationEndSplit.time,
     fixation_duration: fixationDuration,
-    stimulus_start_date: stimulusStartSplit.date,
     stimulus_start_time: stimulusStartSplit.time,
-    stimulus_end_date: stimulusEndSplit.date,
     stimulus_end_time: stimulusEndSplit.time,
     stimulus_duration: stimulusDuration,
-    feedback_start_date: feedbackStartSplit.date,
     feedback_start_time: feedbackStartSplit.time,
-    feedback_end_date: feedbackEndSplit.date,
     feedback_end_time: feedbackEndSplit.time,
     feedback_duration: feedbackDuration
   };
@@ -1380,147 +1391,15 @@ At end of ALL blocks:
 */
 async function endExperiment() {
   console.log("\n=== Ending Experiment ===");
-  // figure out actual blocks that RAN
-  // Because we might skip learning block #4.
-  // We'll reconstruct how many learning / reversal blocks
-  // actually happened and total blocks.
-
-  let learningCount = 0;
-  let reversalCount = 0;
-  let totalBlocksRun = 0;
-
-  let fourthLearningBlockPresent = 0;
-  // We'll deduce from skipFourthLearning:
-  // if we SKIPPED the 4th => 0
-  // if we DID run it => 1
-  // That is: if skipFourthLearning==false, and we had 4th block => it's present.
-
-  // We can re-walk state.blocks and see which ones effectively ran.
-  // A learning block is "run" if blockType==="learning"
-  //   AND (not (4th learning block && skipFourthLearning))
-  // i.e. for each "learning" block we figure out if it is the 4th
-  // one (learning index==3) and we skip if needed.
-  let learningSoFar = 0;
-  for (let b = 0; b < state.blocks.length; b++) {
-    const block = state.blocks[b];
-    if (block.blockType === "learning") {
-      if (learningSoFar === 3 && state.skipFourthLearning) {
-        // this is the 4th learning block but skipped
-        // do not count
-      } else {
-        learningCount += 1;
-        totalBlocksRun += 1;
-        if (learningSoFar === 3 && !state.skipFourthLearning) {
-          fourthLearningBlockPresent = 1;
-        }
-      }
-      learningSoFar += 1;
-    } else {
-      // reversal
-      reversalCount += 1;
-      totalBlocksRun += 1;
-    }
-  }
-
-  // highest_reward_block:
-  // pick blockNumber that had max rewardCount in state.blockRewardCounts
-  let highestBlock = null;
-  let bestReward = -1;
-  Object.keys(state.blockRewardCounts).forEach(bnumStr => {
-    const bnum = parseInt(bnumStr, 10);
-    const val = state.blockRewardCounts[bnumStr];
-    if (val > bestReward) {
-      bestReward = val;
-      highestBlock = bnum;
-    }
-  });
-
-  // learner_status in task summary:
-  // We'll define:
-  //   1 if skipFourthLearning==true (fast learner),
-  //   0 otherwise.
-  const learnerStatus = state.skipFourthLearning ? 1 : 0;
-
-  // Calculate duration statistics for learning, reversal, and total
-  const learningStats = calculateStats(state.learningTrialDurations);
-  const reversalStats = calculateStats(state.reversalTrialDurations);
-  const totalStats = calculateStats(state.allTrialDurations);
   
-  // Calculate phase duration statistics
-  const learningReactionStats = calculateStats(state.learningReactionDurations);
-  const reversalReactionStats = calculateStats(state.reversalReactionDurations);
-  const totalReactionStats = calculateStats(state.allReactionDurations);
-  
-  const learningFixationStats = calculateStats(state.learningFixationDurations);
-  const reversalFixationStats = calculateStats(state.reversalFixationDurations);
-  const totalFixationStats = calculateStats(state.allFixationDurations);
-  
-  const learningStimulusStats = calculateStats(state.learningStimulusDurations);
-  const reversalStimulusStats = calculateStats(state.reversalStimulusDurations);
-  const totalStimulusStats = calculateStats(state.allStimulusDurations);
-  
-  const learningFeedbackStats = calculateStats(state.learningFeedbackDurations);
-  const reversalFeedbackStats = calculateStats(state.reversalFeedbackDurations);
-  const totalFeedbackStats = calculateStats(state.allFeedbackDurations);
-  
-  // Calculate overall left selection percentage
-  const totalTaskSelections = state.totalLeftSelections + state.totalRightSelections;
-  const taskLeftPercent = totalTaskSelections > 0 ? (state.totalLeftSelections / totalTaskSelections) * 100 : 0;
-
-  const taskPayload = {
-    sub_id: state.subId,
-    timestamp: getTimestamp(),
-    total_blocks: totalBlocksRun,
-    learning_blocks: learningCount,
-    reversal_blocks: reversalCount,
-    highest_reward_block: highestBlock,
-    learner_status: learnerStatus,
-    total_rewards: state.score,
-    learning_rewards: state.totalRewardsLearning,
-    reversal_rewards: state.totalRewardsReversal,
-    fourth_learning_block_present: fourthLearningBlockPresent,
-    avg_trial_duration_learning: learningStats.mean,
-    std_trial_duration_learning: learningStats.std,
-    avg_trial_duration_reversal: reversalStats.mean,
-    std_trial_duration_reversal: reversalStats.std,
-    avg_trial_duration_total: totalStats.mean,
-    std_trial_duration_total: totalStats.std,
-    avg_reaction_duration_learning: learningReactionStats.mean,
-    std_reaction_duration_learning: learningReactionStats.std,
-    avg_reaction_duration_reversal: reversalReactionStats.mean,
-    std_reaction_duration_reversal: reversalReactionStats.std,
-    avg_reaction_duration_total: totalReactionStats.mean,
-    std_reaction_duration_total: totalReactionStats.std,
-    avg_fixation_duration_learning: learningFixationStats.mean,
-    std_fixation_duration_learning: learningFixationStats.std,
-    avg_fixation_duration_reversal: reversalFixationStats.mean,
-    std_fixation_duration_reversal: reversalFixationStats.std,
-    avg_fixation_duration_total: totalFixationStats.mean,
-    std_fixation_duration_total: totalFixationStats.std,
-    avg_stimulus_duration_learning: learningStimulusStats.mean,
-    std_stimulus_duration_learning: learningStimulusStats.std,
-    avg_stimulus_duration_reversal: reversalStimulusStats.mean,
-    std_stimulus_duration_reversal: reversalStimulusStats.std,
-    avg_stimulus_duration_total: totalStimulusStats.mean,
-    std_stimulus_duration_total: totalStimulusStats.std,
-    avg_feedback_duration_learning: learningFeedbackStats.mean,
-    std_feedback_duration_learning: learningFeedbackStats.std,
-    avg_feedback_duration_reversal: reversalFeedbackStats.mean,
-    std_feedback_duration_reversal: reversalFeedbackStats.std,
-    avg_feedback_duration_total: totalFeedbackStats.mean,
-    std_feedback_duration_total: totalFeedbackStats.std,
-    selected_left_count: state.totalLeftSelections,
-    selected_right_count: state.totalRightSelections,
-    selected_left_percent: taskLeftPercent,
-    version: state.version
-  };
-
+  // Send final task data with isFinished = true
+  const taskPayload = buildTaskPayload(true);
   console.log("Task summary:");
-  console.log("  Total blocks run:", totalBlocksRun);
-  console.log("  Learning blocks:", learningCount);
-  console.log("  Reversal blocks:", reversalCount);
-  console.log("  Total score:", state.score);
-  console.log("  Learner status:", learnerStatus);
+  console.log("  Total blocks run:", taskPayload.total_blocks);
+  console.log("  Learning blocks:", taskPayload.learning_blocks);
+  console.log("  Reversal blocks:", taskPayload.reversal_blocks);
+  console.log("  Total score:", taskPayload.total_rewards);
+  console.log("  Learner status:", taskPayload.learner_status);
   
   await logTaskData(taskPayload);
 
