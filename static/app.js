@@ -1384,6 +1384,124 @@ function getProbabilitiesForImages(highSet) {
 }
 
 /*
+Build task payload for logging to TaskData sheet.
+Called after each block (isFinished=false) and at end of experiment (isFinished=true).
+*/
+function buildTaskPayload(isFinished) {
+  // figure out actual blocks that RAN
+  // Because we might skip learning block #4.
+  let learningCount = 0;
+  let reversalCount = 0;
+  let totalBlocksRun = 0;
+
+  let fourthLearningBlockPresent = 0;
+
+  let learningSoFar = 0;
+  for (let b = 0; b < state.blocks.length; b++) {
+    const block = state.blocks[b];
+    // Only count blocks that have been run (have summary data with n_trials)
+    if (!block.summary || !block.summary.n_trials) continue;
+    
+    if (block.blockType === "learning") {
+      if (learningSoFar === 3 && state.skipFourthLearning) {
+        // this is the 4th learning block but skipped
+        // do not count
+      } else {
+        learningCount += 1;
+        totalBlocksRun += 1;
+        if (learningSoFar === 3 && !state.skipFourthLearning) {
+          fourthLearningBlockPresent = 1;
+        }
+      }
+      learningSoFar += 1;
+    } else {
+      // reversal
+      reversalCount += 1;
+      totalBlocksRun += 1;
+    }
+  }
+
+  // highest_reward_block:
+  let highestBlock = null;
+  let bestReward = -1;
+  Object.keys(state.blockRewardCounts).forEach(bnumStr => {
+    const bnum = parseFloat(bnumStr);
+    const val = state.blockRewardCounts[bnumStr];
+    if (val > bestReward) {
+      bestReward = val;
+      highestBlock = bnum;
+    }
+  });
+
+  // learner_status: 1 if skipFourthLearning==true (fast learner), 0 otherwise
+  const learnerStatus = state.skipFourthLearning ? 1 : 0;
+
+  // Calculate duration statistics
+  const learningReactionStats = calculateStats(state.learningReactionDurations);
+  const reversalReactionStats = calculateStats(state.reversalReactionDurations);
+  const totalReactionStats = calculateStats(state.allReactionDurations);
+  
+  const learningFixationStats = calculateStats(state.learningFixationDurations);
+  const reversalFixationStats = calculateStats(state.reversalFixationDurations);
+  const totalFixationStats = calculateStats(state.allFixationDurations);
+  
+  const learningStimulusStats = calculateStats(state.learningStimulusDurations);
+  const reversalStimulusStats = calculateStats(state.reversalStimulusDurations);
+  const totalStimulusStats = calculateStats(state.allStimulusDurations);
+  
+  const learningFeedbackStats = calculateStats(state.learningFeedbackDurations);
+  const reversalFeedbackStats = calculateStats(state.reversalFeedbackDurations);
+  const totalFeedbackStats = calculateStats(state.allFeedbackDurations);
+  
+  // Calculate overall left selection percentage
+  const totalTaskSelections = state.totalLeftSelections + state.totalRightSelections;
+  const taskLeftPercent = totalTaskSelections > 0 ? (state.totalLeftSelections / totalTaskSelections) * 100 : 0;
+
+  return {
+    sub_id: state.subId,
+    timestamp: getTimestamp(),
+    total_blocks: totalBlocksRun,
+    learning_blocks: learningCount,
+    reversal_blocks: reversalCount,
+    highest_reward_block: highestBlock,
+    learner_status: learnerStatus,
+    total_rewards: state.score,
+    learning_rewards: state.totalRewardsLearning,
+    reversal_rewards: state.totalRewardsReversal,
+    fourth_learning_block_present: fourthLearningBlockPresent,
+    avg_reaction_duration_learning: learningReactionStats.mean,
+    std_reaction_duration_learning: learningReactionStats.std,
+    avg_reaction_duration_reversal: reversalReactionStats.mean,
+    std_reaction_duration_reversal: reversalReactionStats.std,
+    avg_reaction_duration_total: totalReactionStats.mean,
+    std_reaction_duration_total: totalReactionStats.std,
+    avg_fixation_duration_learning: learningFixationStats.mean,
+    std_fixation_duration_learning: learningFixationStats.std,
+    avg_fixation_duration_reversal: reversalFixationStats.mean,
+    std_fixation_duration_reversal: reversalFixationStats.std,
+    avg_fixation_duration_total: totalFixationStats.mean,
+    std_fixation_duration_total: totalFixationStats.std,
+    avg_stimulus_duration_learning: learningStimulusStats.mean,
+    std_stimulus_duration_learning: learningStimulusStats.std,
+    avg_stimulus_duration_reversal: reversalStimulusStats.mean,
+    std_stimulus_duration_reversal: reversalStimulusStats.std,
+    avg_stimulus_duration_total: totalStimulusStats.mean,
+    std_stimulus_duration_total: totalStimulusStats.std,
+    avg_feedback_duration_learning: learningFeedbackStats.mean,
+    std_feedback_duration_learning: learningFeedbackStats.std,
+    avg_feedback_duration_reversal: reversalFeedbackStats.mean,
+    std_feedback_duration_reversal: reversalFeedbackStats.std,
+    avg_feedback_duration_total: totalFeedbackStats.mean,
+    std_feedback_duration_total: totalFeedbackStats.std,
+    selected_left_count: state.totalLeftSelections,
+    selected_right_count: state.totalRightSelections,
+    selected_left_percent: taskLeftPercent,
+    version: state.version,
+    isFinished: isFinished ? 1 : 0
+  };
+}
+
+/*
 At end of ALL blocks:
  - compute summary stats
  - log /log_task

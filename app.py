@@ -276,9 +276,10 @@ def log_block():
 @app.route("/log_task", methods=["POST"])
 def log_task():
     """
-    Receive JSON for final summary of the task and append to TaskData.
+    Receive JSON for task summary and update/insert to TaskData.
+    If a row with the same sub_id exists, it will be updated.
+    Otherwise, a new row will be appended.
     Expected keys match TASK_COLUMNS.
-    We'll also ensure timestamp is set.
     """
     data = request.get_json(force=True, silent=False)
 
@@ -286,7 +287,28 @@ def log_task():
         data["timestamp"] = server_timestamp_iso()
 
     try:
-        append_row(TASK_SHEET_NAME, data, TASK_COLUMNS)
+        ws = SPREADSHEET.worksheet(TASK_SHEET_NAME)
+        sub_id = data.get("sub_id", "")
+        
+        # Find existing row with same sub_id
+        existing_row = None
+        try:
+            cell = ws.find(str(sub_id), in_column=1)  # sub_id is first column
+            if cell:
+                existing_row = cell.row
+        except gspread.exceptions.CellNotFound:
+            existing_row = None
+        
+        row_vals = [data.get(col, "") for col in TASK_COLUMNS]
+        
+        if existing_row:
+            # Update existing row
+            for col_idx, val in enumerate(row_vals, start=1):
+                ws.update_cell(existing_row, col_idx, val)
+        else:
+            # Append new row
+            ws.append_row(row_vals, value_input_option="USER_ENTERED")
+            
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
