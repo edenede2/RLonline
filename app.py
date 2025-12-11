@@ -326,6 +326,86 @@ def log_task():
     return jsonify({"status": "ok"})
 
 
+@app.route("/log_block_complete", methods=["POST"])
+def log_block_complete():
+    """
+    Combined endpoint to log all block data at once (trials, block summary, task update).
+    This reduces network round-trips from 3 to 1.
+    Expected format: {
+        "trials": [{trial1}, {trial2}, ...],
+        "block": {block data},
+        "task": {task data}
+    }
+    """
+    data = request.get_json(force=True, silent=False)
+    trials = data.get("trials", [])
+    block_data = data.get("block", {})
+    task_data = data.get("task", {})
+    
+    errors = []
+    
+    # 1. Log trials in bulk
+    try:
+        if trials:
+            ws = SPREADSHEET.worksheet(TRIAL_SHEET_NAME)
+            rows = []
+            for trial in trials:
+                if "timestamp" not in trial or not trial["timestamp"]:
+                    trial["timestamp"] = server_timestamp_iso()
+                row_vals = [trial.get(col, "") for col in TRIAL_COLUMNS]
+                rows.append(row_vals)
+            if rows:
+                ws.append_rows(rows, value_input_option="USER_ENTERED")
+    except Exception as e:
+        errors.append(f"trials: {str(e)}")
+    
+    # 2. Log block data
+    try:
+        if block_data:
+            append_row(BLOCK_SHEET_NAME, block_data, BLOCK_COLUMNS)
+    except Exception as e:
+        errors.append(f"block: {str(e)}")
+    
+    # 3. Update/insert task data
+    try:
+        if task_data:
+            if "timestamp" not in task_data or not task_data["timestamp"]:
+                task_data["timestamp"] = server_timestamp_iso()
+            
+            ws = SPREADSHEET.worksheet(TASK_SHEET_NAME)
+            sub_id = task_data.get("sub_id", "")
+            
+            existing_row = None
+            try:
+                cell = ws.find(str(sub_id), in_column=1)
+                if cell:
+                    existing_row = cell.row
+            except gspread.exceptions.CellNotFound:
+                existing_row = None
+            
+            row_vals = [task_data.get(col, "") for col in TASK_COLUMNS]
+            
+            if existing_row:
+                def col_to_letter(col):
+                    result = ""
+                    while col > 0:
+                        col, remainder = divmod(col - 1, 26)
+                        result = chr(65 + remainder) + result
+                    return result
+                end_col_letter = col_to_letter(len(TASK_COLUMNS))
+                cell_range = f"A{existing_row}:{end_col_letter}{existing_row}"
+                ws.update(cell_range, [row_vals], value_input_option="USER_ENTERED")
+            else:
+                ws.append_row(row_vals, value_input_option="USER_ENTERED")
+    except Exception as e:
+        errors.append(f"task: {str(e)}")
+    
+    if errors:
+        return jsonify({"status": "partial_error", "errors": errors}), 500
+    
+    return jsonify({"status": "ok", "trials_added": len(trials)})
+
+
 ############################################################
 # DEV ENTRY POINT
 ############################################################

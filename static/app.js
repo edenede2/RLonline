@@ -974,18 +974,16 @@ async function runNextBlock() {
   // Show loading screen while saving data
   showScreen(loadingScreenEl);
   
-  // Send all trial data in bulk first
-  console.log(`Sending ${block.summary.trialPayloads.length} trial records in bulk...`);
-  await postJSON("/log_trials_bulk", { trials: block.summary.trialPayloads });
-  
-  // Then send block data
-  console.log("Sending block data...");
-  await logBlockData(blockPayload);
-  
-  // Update and send task data after each block
-  console.log("Updating task data...");
+  // Build task payload
   const taskPayload = buildTaskPayload(false); // isFinished = false for in-progress
-  await logTaskData(taskPayload);
+  
+  // Send all block data in a single request for efficiency
+  console.log(`Sending block data: ${block.summary.trialPayloads.length} trials, block summary, and task update...`);
+  await postJSON("/log_block_complete", {
+    trials: block.summary.trialPayloads,
+    block: blockPayload,
+    task: taskPayload
+  });
   
   // Return to task screen for next block
   showScreen(taskScreenEl);
