@@ -189,16 +189,6 @@ const confidenceSlider = document.getElementById("confidence-slider");
 // Loading screen element
 const loadingScreenEl = document.getElementById("loading-screen");
 
-// Debug info elements
-const debugVersionEl = document.getElementById("debug-version");
-const debugBlockEl = document.getElementById("debug-block");
-const debugBlockTypeEl = document.getElementById("debug-block-type");
-const debugTrialEl = document.getElementById("debug-trial");
-const debugScoreEl = document.getElementById("debug-score");
-const debugReversalPairEl = document.getElementById("debug-reversal-pair");
-const debugLearningPairEl = document.getElementById("debug-learning-pair");
-const debugHighSetEl = document.getElementById("debug-high-set");
-
 // MOBILE INSTRUCTIONS SCREEN ELEMENTS (Disabled due to ONLY MOBILE USAGE)
 // const mobileInstructionsBtn = document.getElementById("mobile-instructions-btn");
 
@@ -230,34 +220,10 @@ function hideAllTaskElems() {
   rightImgEl.style.pointerEvents = "none";
 }
 
+// Debug function disabled - debug panel removed
 function updateDebugInfo(block, trialNumber) {
-  // Map image files to readable names
-  const imageNameMap = {
-    "exp1.png": "app_green",
-    "exp2.png": "app_purp",
-    "exp3.png": "orng_orng",
-    "exp4.png": "orng_purp"
-  };
-  
-  // Map pair names to readable names
-  const pairNameMap = {
-    "pair1": "apples",
-    "pair2": "orange"
-  };
-  
-  debugVersionEl.textContent = state.version;
-  debugBlockEl.textContent = block ? block.blockNumber : "-";
-  debugBlockTypeEl.textContent = block ? block.blockType : "-";
-  debugTrialEl.textContent = trialNumber || "-";
-  debugScoreEl.textContent = state.score;
-  debugReversalPairEl.textContent = state.reversalPair ? pairNameMap[state.reversalPair] + " (reversed)" : "-";
-  debugLearningPairEl.textContent = state.learningPair ? pairNameMap[state.learningPair] + " (non-reversed)" : "-";
-  if (block && block.highSet) {
-    const highSetStr = block.highSet.map(i => imageNameMap[IMAGE_FILES[i]]).join(", ");
-    debugHighSetEl.textContent = highSetStr;
-  } else {
-    debugHighSetEl.textContent = "-";
-  }
+  // Debug panel has been removed from production
+  // This function is kept as a no-op to prevent errors from existing calls
 }
 
 /* =======================
@@ -1160,7 +1126,6 @@ async function runSingleTrial(block, trialObj, trialNumber) {
   if (outcome.reward_received === 1) {
     state.score += 1;
     scoreValEl.textContent = state.score;
-    debugScoreEl.textContent = state.score;
   }
 
   // show only feedback result image (smiley and amount)
