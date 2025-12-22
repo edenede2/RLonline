@@ -548,20 +548,94 @@ function buildExperimentBlocks(version) {
    ======================= */
 
 /*
-POST JSON helper for trial/block/task logging to Flask.
+Retry configuration for network requests
 */
-async function postJSON(url, payload) {
+const RETRY_CONFIG = {
+  maxRetries: 3,
+  baseDelayMs: 1000,  // Start with 1 second delay
+  maxDelayMs: 10000,  // Cap at 10 seconds
+  backoffMultiplier: 2
+};
+
+/*
+Sleep helper for delays between retries
+*/
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/*
+POST JSON helper for trial/block/task logging to Flask.
+Includes retry logic with exponential backoff.
+*/
+async function postJSON(url, payload, retryCount = 0) {
   try {
     const resp = await fetch(url, {
       method: "POST",
       headers: {"Content-Type": "application/json"},
       body: JSON.stringify(payload)
     });
-    return await resp.json();
+    
+    const result = await resp.json();
+    
+    // Check for server-side partial errors and retry if needed
+    if (result.status === "partial_error" && retryCount < RETRY_CONFIG.maxRetries) {
+      console.warn(`Partial error on ${url}, attempt ${retryCount + 1}/${RETRY_CONFIG.maxRetries}:`, result.errors);
+      const delay = Math.min(
+        RETRY_CONFIG.baseDelayMs * Math.pow(RETRY_CONFIG.backoffMultiplier, retryCount),
+        RETRY_CONFIG.maxDelayMs
+      );
+      await sleep(delay);
+      return postJSON(url, payload, retryCount + 1);
+    }
+    
+    // Check for non-OK HTTP status
+    if (!resp.ok && retryCount < RETRY_CONFIG.maxRetries) {
+      console.warn(`HTTP ${resp.status} on ${url}, attempt ${retryCount + 1}/${RETRY_CONFIG.maxRetries}`);
+      const delay = Math.min(
+        RETRY_CONFIG.baseDelayMs * Math.pow(RETRY_CONFIG.backoffMultiplier, retryCount),
+        RETRY_CONFIG.maxDelayMs
+      );
+      await sleep(delay);
+      return postJSON(url, payload, retryCount + 1);
+    }
+    
+    if (retryCount > 0) {
+      console.log(`Request to ${url} succeeded after ${retryCount} retries`);
+    }
+    
+    return result;
   } catch (err) {
-    console.error("POST error", url, err, payload);
-    // we don't block the experiment, but we log the error in console
-    return {status: "error", message: err.toString()};
+    // Network error - retry with exponential backoff
+    if (retryCount < RETRY_CONFIG.maxRetries) {
+      const delay = Math.min(
+        RETRY_CONFIG.baseDelayMs * Math.pow(RETRY_CONFIG.backoffMultiplier, retryCount),
+        RETRY_CONFIG.maxDelayMs
+      );
+      console.warn(`Network error on ${url}, retrying in ${delay}ms (attempt ${retryCount + 1}/${RETRY_CONFIG.maxRetries}):`, err.message);
+      await sleep(delay);
+      return postJSON(url, payload, retryCount + 1);
+    }
+    
+    // All retries exhausted
+    console.error(`POST failed after ${RETRY_CONFIG.maxRetries} retries:`, url, err, payload);
+    
+    // Store failed request in localStorage as backup
+    try {
+      const failedRequests = JSON.parse(localStorage.getItem('failedRequests') || '[]');
+      failedRequests.push({
+        url,
+        payload,
+        timestamp: new Date().toISOString(),
+        error: err.toString()
+      });
+      localStorage.setItem('failedRequests', JSON.stringify(failedRequests));
+      console.log('Failed request saved to localStorage for potential recovery');
+    } catch (storageErr) {
+      console.error('Could not save failed request to localStorage:', storageErr);
+    }
+    
+    return {status: "error", message: err.toString(), retriesExhausted: true};
   }
 }
 
