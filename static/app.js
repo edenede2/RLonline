@@ -124,6 +124,9 @@ let state = {
   totalRewardsReversal: 0,
   blockRewardCounts: {}, // blockNumber -> rewardCount
   
+  // all trial payloads for backup logging at end
+  allTrialPayloads: [],
+  
   // timing tracking
   allTrialDurations: [], // all trial durations in seconds
   learningTrialDurations: [], // learning phase durations
@@ -849,6 +852,8 @@ async function runNextBlock() {
     // Store trial payload for bulk sending
     if (trialResult.trialPayload) {
       block.summary.trialPayloads.push(trialResult.trialPayload);
+      // Also store in global array for backup at experiment end
+      state.allTrialPayloads.push(trialResult.trialPayload);
     }
 
     // update block summary
@@ -1563,6 +1568,20 @@ async function endExperiment() {
   console.log("  Learner status:", taskPayload.learner_status);
   
   await logTaskData(taskPayload);
+  
+  // Send complete backup of all trial data to logData sheet
+  if (state.allTrialPayloads.length > 0) {
+    console.log(`Sending backup of all ${state.allTrialPayloads.length} trials to logData sheet...`);
+    const backupResult = await postJSON("/log_backup_trials", {
+      sub_id: state.subId,
+      trials: state.allTrialPayloads
+    });
+    if (backupResult.status === "ok") {
+      console.log("Backup trial data saved successfully");
+    } else {
+      console.warn("Backup trial data save had issues:", backupResult);
+    }
+  }
 
   console.log("=== Experiment Complete ===");
   

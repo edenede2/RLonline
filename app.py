@@ -406,6 +406,52 @@ def log_block_complete():
     return jsonify({"status": "ok", "trials_added": len(trials)})
 
 
+# Sheet name for backup trial data
+LOG_DATA_SHEET_NAME = "logData"
+
+@app.route("/log_backup_trials", methods=["POST"])
+def log_backup_trials():
+    """
+    Backup endpoint to log all trial data at experiment end.
+    This serves as a safety net in case between-block saves failed.
+    Expected format: {
+        "sub_id": "...",
+        "trials": [{trial1}, {trial2}, ...]
+    }
+    """
+    data = request.get_json(force=True, silent=False)
+    sub_id = data.get("sub_id", "")
+    trials = data.get("trials", [])
+    
+    if not trials:
+        return jsonify({"status": "ok", "message": "No trials to backup", "trials_added": 0})
+    
+    try:
+        # Get or create the logData sheet
+        try:
+            ws = SPREADSHEET.worksheet(LOG_DATA_SHEET_NAME)
+        except gspread.exceptions.WorksheetNotFound:
+            # Create the sheet with headers if it doesn't exist
+            ws = SPREADSHEET.add_worksheet(title=LOG_DATA_SHEET_NAME, rows=1000, cols=len(TRIAL_COLUMNS))
+            ws.append_row(TRIAL_COLUMNS, value_input_option="USER_ENTERED")
+        
+        # Prepare rows for bulk insert
+        rows = []
+        for trial in trials:
+            if "timestamp" not in trial or not trial["timestamp"]:
+                trial["timestamp"] = server_timestamp_iso()
+            row_vals = [trial.get(col, "") for col in TRIAL_COLUMNS]
+            rows.append(row_vals)
+        
+        if rows:
+            ws.append_rows(rows, value_input_option="USER_ENTERED")
+        
+        return jsonify({"status": "ok", "trials_added": len(rows)})
+    
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
 ############################################################
 # DEV ENTRY POINT
 ############################################################
