@@ -291,20 +291,35 @@ Return an array of objects:
   rightImg: number, // index actually shown on right for THIS TRIAL
 }
 */
-// Generate predetermined misleading schedule: 80% valid, 20% misleading
-// For 20 trials: 16 valid (no mislead), 4 misleading
-function generateMisleadingSchedule(numTrials) {
-  const numMisleading = Math.round(numTrials * MISLEAD_THRESHOLD);
-  const schedule = Array(numTrials).fill(0); // 0 = no mislead
+// Generate predetermined misleading schedule per pair: 80% valid, 20% misleading for EACH pair
+// This ensures each pair independently gets ~20% misleading trials (2 per pair of ~10 trials)
+function generateMisleadingSchedulePerPair(trials) {
+  const schedule = Array(trials.length).fill(0); // 0 = no mislead
   
-  // Randomly select which trials will be misleading
-  const misleadingIndices = [];
-  while (misleadingIndices.length < numMisleading) {
-    const idx = Math.floor(Math.random() * numTrials);
-    if (!misleadingIndices.includes(idx)) {
-      misleadingIndices.push(idx);
-      schedule[idx] = 1; // 1 = misleading
+  // Group trial indices by pairId
+  const pair1Indices = [];
+  const pair2Indices = [];
+  
+  trials.forEach((tr, idx) => {
+    if (tr.pairId === "pair1") {
+      pair1Indices.push(idx);
+    } else if (tr.pairId === "pair2") {
+      pair2Indices.push(idx);
     }
+  });
+  
+  // Generate misleading trials for pair1 (20% of pair1 trials)
+  const numMisleadingPair1 = Math.round(pair1Indices.length * MISLEAD_THRESHOLD);
+  const shuffledPair1 = pair1Indices.slice().sort(() => Math.random() - 0.5);
+  for (let i = 0; i < numMisleadingPair1; i++) {
+    schedule[shuffledPair1[i]] = 1; // 1 = misleading
+  }
+  
+  // Generate misleading trials for pair2 (20% of pair2 trials)
+  const numMisleadingPair2 = Math.round(pair2Indices.length * MISLEAD_THRESHOLD);
+  const shuffledPair2 = pair2Indices.slice().sort(() => Math.random() - 0.5);
+  for (let i = 0; i < numMisleadingPair2; i++) {
+    schedule[shuffledPair2[i]] = 1; // 1 = misleading
   }
   
   return schedule;
@@ -419,8 +434,8 @@ function generateTrialsForBlock(highSet, blockType) {
     }
   }
 
-  // Generate predetermined misleading schedule
-  const misleadingSchedule = generateMisleadingSchedule(trials.length);
+  // Generate predetermined misleading schedule per pair (each pair gets 20% misleading independently)
+  const misleadingSchedule = generateMisleadingSchedulePerPair(trials);
   
   // Assign left/right orientation with proper probability
   // For each trial after the first, if it's the same pair as previous:
