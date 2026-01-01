@@ -1,6 +1,7 @@
 import os
 import json
 import datetime
+from zoneinfo import ZoneInfo
 from flask import Flask, request, jsonify, send_from_directory
 
 import gspread
@@ -203,7 +204,9 @@ def serve_image(filename):
 
 
 def server_timestamp_iso():
-    return datetime.datetime.utcnow().isoformat(timespec="seconds") + "Z"
+    """Return current timestamp in Israel timezone (Asia/Jerusalem)."""
+    israel_tz = ZoneInfo("Asia/Jerusalem")
+    return datetime.datetime.now(israel_tz).isoformat(timespec="seconds")
 
 
 ############################################################
