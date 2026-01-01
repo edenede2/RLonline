@@ -250,33 +250,32 @@ function sleep(ms) {
 }
 
 function getTimestamp() {
-  // client timestamp; server will also stamp
-  return new Date().toISOString();
+  // client timestamp in Israel timezone
+  return new Date().toLocaleString('sv-SE', { 
+    timeZone: 'Asia/Jerusalem',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  }).replace(' ', 'T');
 }
 
 /*
-Split ISO timestamp into date (yyyy-mm-dd) and time (hh:mm:ss.ms)
+Split timestamp into date (yyyy-mm-dd) and time (hh:mm:ss)
 Returns object with date and time properties
 */
-function splitTimestamp(isoString) {
-  if (!isoString) return { date: "", time: "" };
+function splitTimestamp(timestamp) {
+  if (!timestamp) return { date: "", time: "" };
   
-  const date = new Date(isoString);
+  // Handle format: yyyy-mm-ddThh:mm:ss
+  const parts = timestamp.split('T');
+  if (parts.length === 2) {
+    return { date: parts[0], time: parts[1] };
+  }
   
-  // Format date as yyyy-mm-dd
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const dateStr = `${year}-${month}-${day}`;
-  
-  // Format time as hh:mm:ss.ms
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  const seconds = String(date.getSeconds()).padStart(2, '0');
-  const milliseconds = String(date.getMilliseconds()).padStart(3, '0');
-  const timeStr = `${hours}:${minutes}:${seconds}.${milliseconds}`;
-  
-  return { date: dateStr, time: timeStr };
+  return { date: timestamp, time: "" };
 }
 
 /*
@@ -644,7 +643,7 @@ async function postJSON(url, payload, retryCount = 0) {
       failedRequests.push({
         url,
         payload,
-        timestamp: new Date().toISOString(),
+        timestamp: getTimestamp(),
         error: err.toString()
       });
       localStorage.setItem('failedRequests', JSON.stringify(failedRequests));
