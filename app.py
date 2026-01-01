@@ -3,7 +3,7 @@ import json
 import datetime
 from zoneinfo import ZoneInfo
 from flask import Flask, request, jsonify, send_from_directory
-
+from zoneinfo import ZoneInfo
 import gspread
 from google.oauth2.service_account import Credentials
 
@@ -208,6 +208,10 @@ def server_timestamp_iso():
     israel_tz = ZoneInfo("Asia/Jerusalem")
     return datetime.datetime.now(israel_tz).isoformat(timespec="seconds")
 
+
+def server_timestamp_iso():
+    israel_tz = ZoneInfo("Asia/Jerusalem")
+    return datetime.datetime.now(israel_tz).isoformat(timespec="seconds")
 
 ############################################################
 # DATA LOGGING ENDPOINTS
