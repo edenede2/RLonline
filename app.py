@@ -205,8 +205,8 @@ def serve_image(filename):
 
 
 def server_timestamp_iso():
-    return datetime.datetime.utcnow().isoformat(timespec="seconds") + "Z"
-
+    israel_tz = ZoneInfo("Asia/Jerusalem")
+    return datetime.datetime.now(israel_tz).isoformat(timespec="seconds")
 
 ############################################################
 # DATA LOGGING ENDPOINTS
