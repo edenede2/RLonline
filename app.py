@@ -2,7 +2,7 @@ import os
 import json
 import datetime
 from flask import Flask, request, jsonify, send_from_directory
-
+from zoneinfo import ZoneInfo
 import gspread
 from google.oauth2.service_account import Credentials
 
@@ -202,9 +202,11 @@ def serve_image(filename):
     return send_from_directory(os.path.join("static", "images"), filename)
 
 
-def server_timestamp_iso():
-    return datetime.datetime.utcnow().isoformat(timespec="seconds") + "Z"
 
+
+def server_timestamp_iso():
+    israel_tz = ZoneInfo("Asia/Jerusalem")
+    return datetime.datetime.now(israel_tz).isoformat(timespec="seconds")
 
 ############################################################
 # DATA LOGGING ENDPOINTS
