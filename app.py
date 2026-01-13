@@ -246,6 +246,12 @@ def index():
     return send_from_directory("static", "index.html")
 
 
+@app.route("/favicon.ico")
+def favicon():
+    # Return empty response for favicon to prevent 404
+    return "", 204
+
+
 @app.route("/static/<path:path>")
 def send_static(path):
     # Serve static files (css/js etc.). Flask can already do this automatically
@@ -276,10 +282,58 @@ def get_projects():
     Returns a list of {id, name} objects.
     """
     try:
+        print(f"[DEBUG] Attempting to list files in folder: {DRIVE_FOLDER_ID}")
+        
+        # First, try to get folder info to verify access
+        try:
+            folder_info = DRIVE_SERVICE.files().get(
+                fileId=DRIVE_FOLDER_ID,
+                fields='id, name, mimeType'
+            ).execute()
+            print(f"[DEBUG] Folder info: {folder_info}")
+        except Exception as folder_err:
+            print(f"[DEBUG] Could not get folder info: {folder_err}")
+        
+        # List ALL files in the folder first (any type)
+        query_all = f"'{DRIVE_FOLDER_ID}' in parents and trashed=false"
+        print(f"[DEBUG] Query for all files: {query_all}")
+        
+        all_files_result = DRIVE_SERVICE.files().list(
+            q=query_all,
+            spaces='drive',
+            fields='files(id, name, mimeType)',
+            orderBy='name'
+        ).execute()
+        
+        all_files = all_files_result.get('files', [])
+        print(f"[DEBUG] All files in folder ({len(all_files)}): {all_files}")
+        
+        # Now filter for spreadsheets only
         spreadsheets = list_spreadsheets_in_folder(DRIVE_SERVICE, DRIVE_FOLDER_ID)
-        return jsonify({"status": "ok", "projects": spreadsheets})
+        print(f"[DEBUG] Spreadsheets found: {spreadsheets}")
+        
+        return jsonify({
+            "status": "ok", 
+            "projects": spreadsheets,
+            "debug": {
+                "folder_id": DRIVE_FOLDER_ID,
+                "all_files_count": len(all_files),
+                "all_files": all_files,
+                "spreadsheets_count": len(spreadsheets)
+            }
+        })
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"[DEBUG] Error in get_projects: {error_trace}")
+        return jsonify({
+            "status": "error", 
+            "message": str(e),
+            "debug": {
+                "folder_id": DRIVE_FOLDER_ID,
+                "traceback": error_trace
+            }
+        }), 500
 
 
 @app.route("/select_project", methods=["POST"])
