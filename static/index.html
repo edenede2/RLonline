@@ -7,9 +7,23 @@
   <link rel="stylesheet" href="/static/styles.css" />
 </head>
 <body>
-  <!-- START SCREEN: enter participant ID and version -->
-  <div id="start-screen" class="screen visible">
+  <!-- PROJECT SELECTION SCREEN -->
+  <div id="project-screen" class="screen visible">
     <h1>Reversal Learning Task</h1>
+    <div class="form-row">
+      <label for="project-select">Select Project:</label>
+      <select id="project-select" class="project-dropdown">
+        <option value="">Loading projects...</option>
+      </select>
+    </div>
+    <p id="project-error" class="error-text hidden"></p>
+    <button id="project-btn" disabled>Continue</button>
+  </div>
+
+  <!-- START SCREEN: enter participant ID and version -->
+  <div id="start-screen" class="screen hidden">
+    <h1>Reversal Learning Task</h1>
+    <p id="selected-project-name" class="project-name-display"></p>
     <div class="form-row">
       <label for="participant-id">Participant ID:</label>
       <input type="text" id="participant-id" placeholder="e.g. 876" />

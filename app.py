@@ -3,19 +3,22 @@ import json
 import datetime
 from zoneinfo import ZoneInfo
 from flask import Flask, request, jsonify, send_from_directory
-from zoneinfo import ZoneInfo
 import gspread
 from google.oauth2.service_account import Credentials
+from googleapiclient.discovery import build
 
 ############################################################
 # CONFIGURATION / GOOGLE SHEETS CLIENT
 ############################################################
 
-def init_gspread_client():
+# Google Drive folder ID extracted from the shared folder URL
+# https://drive.google.com/drive/u/0/folders/1d5b2MuYbUFovp2p1h0QioYET5Jxk3ChL
+DRIVE_FOLDER_ID = os.environ.get("DRIVE_FOLDER_ID", "1d5b2MuYbUFovp2p1h0QioYET5Jxk3ChL")
+
+def init_google_credentials():
     """
-    Initialize gspread client from GOOGLE_CREDENTIALS_JSON env var.
-    The env var should contain the full service account JSON as a string.
-    The service account must have edit access to the Google Sheet.
+    Initialize Google credentials from GOOGLE_CREDENTIALS_JSON env var.
+    Returns credentials object that can be used for both Sheets and Drive APIs.
     """
     creds_json = os.environ.get("GOOGLE_CREDENTIALS_JSON", None)
     if creds_json is None:
@@ -25,34 +28,84 @@ def init_gspread_client():
 
     scopes = [
         "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive"
+        "https://www.googleapis.com/auth/drive",
+        "https://www.googleapis.com/auth/drive.readonly"
     ]
     creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+    return creds, creds_dict
+
+
+def init_gspread_client(creds):
+    """
+    Initialize gspread client from credentials.
+    """
     gc = gspread.authorize(creds)
     return gc
 
 
-def init_spreadsheet(gc):
+def init_drive_service(creds):
     """
-    Open spreadsheet either by SHEET_ID or SHEET_NAME.
-    SHEET_ID is recommended (the long ID from the URL).
+    Initialize Google Drive API service.
     """
-    sheet_id = os.environ.get("SHEET_ID", None)
-    sheet_name = os.environ.get("SHEET_NAME", None)
+    service = build('drive', 'v3', credentials=creds)
+    return service
 
-    if sheet_id:
-        sh = gc.open_by_key(sheet_id)
-    elif sheet_name:
-        sh = gc.open(sheet_name)
-    else:
-        raise RuntimeError("Must define SHEET_ID or SHEET_NAME env var")
 
-    return sh
+def list_spreadsheets_in_folder(drive_service, folder_id):
+    """
+    List all Google Spreadsheets in a specific Drive folder.
+    Returns list of {id, name} dicts.
+    """
+    query = f"'{folder_id}' in parents and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false"
+    results = drive_service.files().list(
+        q=query,
+        spaces='drive',
+        fields='files(id, name)',
+        orderBy='name'
+    ).execute()
+    
+    files = results.get('files', [])
+    return [{"id": f["id"], "name": f["name"]} for f in files]
 
 
 # Initialize globals at import time
-GC = init_gspread_client()
-SPREADSHEET = init_spreadsheet(GC)
+CREDENTIALS, CREDS_DICT = init_google_credentials()
+GC = init_gspread_client(CREDENTIALS)
+DRIVE_SERVICE = init_drive_service(CREDENTIALS)
+
+# Dynamic spreadsheet storage - will be set per session
+# Default to environment variable if set (for backwards compatibility)
+SPREADSHEET = None
+CURRENT_SHEET_ID = None
+
+def get_or_init_spreadsheet(sheet_id=None):
+    """
+    Get the current spreadsheet or initialize with a specific sheet_id.
+    If sheet_id is provided, switches to that spreadsheet.
+    Falls back to SHEET_ID or SHEET_NAME env vars if no sheet_id provided.
+    """
+    global SPREADSHEET, CURRENT_SHEET_ID
+    
+    if sheet_id:
+        SPREADSHEET = GC.open_by_key(sheet_id)
+        CURRENT_SHEET_ID = sheet_id
+        return SPREADSHEET
+    
+    if SPREADSHEET is not None:
+        return SPREADSHEET
+    
+    # Fallback to environment variables for backwards compatibility
+    env_sheet_id = os.environ.get("SHEET_ID", None)
+    env_sheet_name = os.environ.get("SHEET_NAME", None)
+    
+    if env_sheet_id:
+        SPREADSHEET = GC.open_by_key(env_sheet_id)
+        CURRENT_SHEET_ID = env_sheet_id
+    elif env_sheet_name:
+        SPREADSHEET = GC.open(env_sheet_name)
+        CURRENT_SHEET_ID = SPREADSHEET.id
+    
+    return SPREADSHEET
 
 # Column orders for each sheet
 TRIAL_SHEET_NAME = "TrialData"
@@ -166,12 +219,15 @@ TASK_COLUMNS = [
 ]
 
 
-def append_row(sheet_name, data_dict, columns_order):
+def append_row(sheet_name, data_dict, columns_order, spreadsheet=None):
     """
     Append a row to a worksheet by mapping data_dict to the provided column order.
     If a key is missing in data_dict, an empty string is inserted.
     """
-    ws = SPREADSHEET.worksheet(sheet_name)
+    ss = spreadsheet or get_or_init_spreadsheet()
+    if ss is None:
+        raise RuntimeError("No spreadsheet selected. Please select a project first.")
+    ws = ss.worksheet(sheet_name)
     row_vals = [data_dict.get(col, "") for col in columns_order]
     # We use USER_ENTERED so numbers don't all become strings
     ws.append_row(row_vals, value_input_option="USER_ENTERED")
@@ -209,9 +265,64 @@ def server_timestamp_iso():
     return datetime.datetime.now(israel_tz).isoformat(timespec="seconds")
 
 
-def server_timestamp_iso():
-    israel_tz = ZoneInfo("Asia/Jerusalem")
-    return datetime.datetime.now(israel_tz).isoformat(timespec="seconds")
+############################################################
+# PROJECT SELECTION ENDPOINTS
+############################################################
+
+@app.route("/get_projects", methods=["GET"])
+def get_projects():
+    """
+    List all spreadsheets in the shared Google Drive folder.
+    Returns a list of {id, name} objects.
+    """
+    try:
+        spreadsheets = list_spreadsheets_in_folder(DRIVE_SERVICE, DRIVE_FOLDER_ID)
+        return jsonify({"status": "ok", "projects": spreadsheets})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/select_project", methods=["POST"])
+def select_project():
+    """
+    Select a specific spreadsheet to use for data recording.
+    Expected JSON: {"sheet_id": "...", "sheet_name": "..."}
+    """
+    data = request.get_json(force=True, silent=False)
+    sheet_id = data.get("sheet_id")
+    sheet_name = data.get("sheet_name", "Unknown")
+    
+    if not sheet_id:
+        return jsonify({"status": "error", "message": "sheet_id is required"}), 400
+    
+    try:
+        spreadsheet = get_or_init_spreadsheet(sheet_id)
+        return jsonify({
+            "status": "ok", 
+            "message": f"Selected project: {sheet_name}",
+            "sheet_id": sheet_id,
+            "sheet_name": spreadsheet.title
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/get_current_project", methods=["GET"])
+def get_current_project():
+    """
+    Get the currently selected project/spreadsheet.
+    """
+    ss = get_or_init_spreadsheet()
+    if ss is None:
+        return jsonify({"status": "ok", "project": None})
+    return jsonify({
+        "status": "ok", 
+        "project": {
+            "id": CURRENT_SHEET_ID,
+            "name": ss.title
+        }
+    })
+
 
 ############################################################
 # DATA LOGGING ENDPOINTS
@@ -247,7 +358,10 @@ def log_trials_bulk():
     trials = data.get("trials", [])
 
     try:
-        ws = SPREADSHEET.worksheet(TRIAL_SHEET_NAME)
+        ss = get_or_init_spreadsheet()
+        if ss is None:
+            return jsonify({"status": "error", "message": "No spreadsheet selected"}), 400
+        ws = ss.worksheet(TRIAL_SHEET_NAME)
         rows = []
         for trial in trials:
             if "timestamp" not in trial or not trial["timestamp"]:
@@ -295,7 +409,10 @@ def log_task():
         data["timestamp"] = server_timestamp_iso()
 
     try:
-        ws = SPREADSHEET.worksheet(TASK_SHEET_NAME)
+        ss = get_or_init_spreadsheet()
+        if ss is None:
+            return jsonify({"status": "error", "message": "No spreadsheet selected"}), 400
+        ws = ss.worksheet(TASK_SHEET_NAME)
         sub_id = data.get("sub_id", "")
         
         # Find existing row with same sub_id
@@ -351,10 +468,14 @@ def log_block_complete():
     
     errors = []
     
+    ss = get_or_init_spreadsheet()
+    if ss is None:
+        return jsonify({"status": "error", "message": "No spreadsheet selected"}), 400
+    
     # 1. Log trials in bulk
     try:
         if trials:
-            ws = SPREADSHEET.worksheet(TRIAL_SHEET_NAME)
+            ws = ss.worksheet(TRIAL_SHEET_NAME)
             rows = []
             for trial in trials:
                 if "timestamp" not in trial or not trial["timestamp"]:
@@ -369,7 +490,7 @@ def log_block_complete():
     # 2. Log block data
     try:
         if block_data:
-            append_row(BLOCK_SHEET_NAME, block_data, BLOCK_COLUMNS)
+            append_row(BLOCK_SHEET_NAME, block_data, BLOCK_COLUMNS, ss)
     except Exception as e:
         errors.append(f"block: {str(e)}")
     
@@ -379,7 +500,7 @@ def log_block_complete():
             if "timestamp" not in task_data or not task_data["timestamp"]:
                 task_data["timestamp"] = server_timestamp_iso()
             
-            ws = SPREADSHEET.worksheet(TASK_SHEET_NAME)
+            ws = ss.worksheet(TASK_SHEET_NAME)
             sub_id = task_data.get("sub_id", "")
             
             existing_row = None
@@ -434,12 +555,15 @@ def log_backup_trials():
         return jsonify({"status": "ok", "message": "No trials to backup", "trials_added": 0})
     
     try:
+        ss = get_or_init_spreadsheet()
+        if ss is None:
+            return jsonify({"status": "error", "message": "No spreadsheet selected"}), 400
         # Get or create the logData sheet
         try:
-            ws = SPREADSHEET.worksheet(LOG_DATA_SHEET_NAME)
+            ws = ss.worksheet(LOG_DATA_SHEET_NAME)
         except gspread.exceptions.WorksheetNotFound:
             # Create the sheet with headers if it doesn't exist
-            ws = SPREADSHEET.add_worksheet(title=LOG_DATA_SHEET_NAME, rows=1000, cols=len(TRIAL_COLUMNS))
+            ws = ss.add_worksheet(title=LOG_DATA_SHEET_NAME, rows=1000, cols=len(TRIAL_COLUMNS))
             ws.append_row(TRIAL_COLUMNS, value_input_option="USER_ENTERED")
         
         # Prepare rows for bulk insert

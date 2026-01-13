@@ -155,6 +155,12 @@ let state = {
    DOM ELEMENTS
    ======================= */
 
+const projectScreenEl = document.getElementById("project-screen");
+const projectSelectEl = document.getElementById("project-select");
+const projectBtn = document.getElementById("project-btn");
+const projectErrorEl = document.getElementById("project-error");
+const selectedProjectNameEl = document.getElementById("selected-project-name");
+
 const startScreenEl = document.getElementById("start-screen");
 const phoneFlipScreenEl = document.getElementById("phone-flip-screen");
 // const mobileInstructionsScreenEl = document.getElementById("mobile-instructions-screen");
@@ -201,7 +207,7 @@ const loadingScreenEl = document.getElementById("loading-screen");
    ======================= */
 
 function showScreen(screenEl) {
-  [startScreenEl, phoneFlipScreenEl, instrScreenEl, taskScreenEl, confidenceScreenEl, endScreenEl, loadingScreenEl].forEach(s => {
+  [projectScreenEl, startScreenEl, phoneFlipScreenEl, instrScreenEl, taskScreenEl, confidenceScreenEl, endScreenEl, loadingScreenEl].forEach(s => {
     s.classList.add("hidden");
     s.classList.remove("visible");
   });
@@ -1639,6 +1645,119 @@ nextInstrBtn.addEventListener("click", () => {
     runExperiment();
   }
 });
+
+
+/* =======================
+   PROJECT SELECTION
+   ======================= */
+
+// Store selected project info
+let selectedProject = {
+  id: null,
+  name: null
+};
+
+// Fetch available projects on page load
+async function loadProjects() {
+  try {
+    projectSelectEl.innerHTML = '<option value="">Loading projects...</option>';
+    projectBtn.disabled = true;
+    projectErrorEl.classList.add("hidden");
+    
+    const response = await fetch("/get_projects");
+    const data = await response.json();
+    
+    if (data.status !== "ok") {
+      throw new Error(data.message || "Failed to load projects");
+    }
+    
+    const projects = data.projects;
+    
+    if (projects.length === 0) {
+      projectSelectEl.innerHTML = '<option value="">No projects found</option>';
+      projectErrorEl.textContent = "No spreadsheets found in the shared folder. Please create one first.";
+      projectErrorEl.classList.remove("hidden");
+      return;
+    }
+    
+    // Populate dropdown
+    projectSelectEl.innerHTML = '<option value="">-- Select a project --</option>';
+    projects.forEach(project => {
+      const option = document.createElement("option");
+      option.value = project.id;
+      option.textContent = project.name;
+      option.dataset.name = project.name;
+      projectSelectEl.appendChild(option);
+    });
+    
+  } catch (error) {
+    console.error("Error loading projects:", error);
+    projectSelectEl.innerHTML = '<option value="">Error loading projects</option>';
+    projectErrorEl.textContent = "Failed to load projects: " + error.message;
+    projectErrorEl.classList.remove("hidden");
+  }
+}
+
+// Handle project selection change
+projectSelectEl.addEventListener("change", () => {
+  const selectedOption = projectSelectEl.options[projectSelectEl.selectedIndex];
+  if (selectedOption && selectedOption.value) {
+    selectedProject.id = selectedOption.value;
+    selectedProject.name = selectedOption.dataset.name || selectedOption.textContent;
+    projectBtn.disabled = false;
+    projectErrorEl.classList.add("hidden");
+  } else {
+    selectedProject.id = null;
+    selectedProject.name = null;
+    projectBtn.disabled = true;
+  }
+});
+
+// Handle project confirmation
+projectBtn.addEventListener("click", async () => {
+  if (!selectedProject.id) {
+    alert("Please select a project first.");
+    return;
+  }
+  
+  projectBtn.disabled = true;
+  projectBtn.textContent = "Loading...";
+  projectErrorEl.classList.add("hidden");
+  
+  try {
+    const response = await fetch("/select_project", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sheet_id: selectedProject.id,
+        sheet_name: selectedProject.name
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (data.status !== "ok") {
+      throw new Error(data.message || "Failed to select project");
+    }
+    
+    // Update the display on start screen
+    selectedProjectNameEl.textContent = "Project: " + selectedProject.name;
+    
+    // Move to start screen
+    showScreen(startScreenEl);
+    
+  } catch (error) {
+    console.error("Error selecting project:", error);
+    projectErrorEl.textContent = "Failed to select project: " + error.message;
+    projectErrorEl.classList.remove("hidden");
+  } finally {
+    projectBtn.disabled = false;
+    projectBtn.textContent = "Continue";
+  }
+});
+
+// Load projects when page loads
+loadProjects();
 
 
 /* =======================
