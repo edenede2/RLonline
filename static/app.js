@@ -1664,14 +1664,28 @@ async function loadProjects() {
     projectBtn.disabled = true;
     projectErrorEl.classList.add("hidden");
     
+    console.log("[DEBUG] Fetching projects from /get_projects...");
     const response = await fetch("/get_projects");
     const data = await response.json();
+    
+    // Log full debug info to console
+    console.log("[DEBUG] Response from /get_projects:", data);
+    if (data.debug) {
+      console.log("[DEBUG] Folder ID:", data.debug.folder_id);
+      console.log("[DEBUG] All files count:", data.debug.all_files_count);
+      console.log("[DEBUG] All files:", data.debug.all_files);
+      console.log("[DEBUG] Spreadsheets count:", data.debug.spreadsheets_count);
+      if (data.debug.traceback) {
+        console.error("[DEBUG] Server traceback:", data.debug.traceback);
+      }
+    }
     
     if (data.status !== "ok") {
       throw new Error(data.message || "Failed to load projects");
     }
     
     const projects = data.projects;
+    console.log("[DEBUG] Projects to display:", projects);
     
     if (projects.length === 0) {
       projectSelectEl.innerHTML = '<option value="">No projects found</option>';
@@ -1691,7 +1705,7 @@ async function loadProjects() {
     });
     
   } catch (error) {
-    console.error("Error loading projects:", error);
+    console.error("[DEBUG] Error loading projects:", error);
     projectSelectEl.innerHTML = '<option value="">Error loading projects</option>';
     projectErrorEl.textContent = "Failed to load projects: " + error.message;
     projectErrorEl.classList.remove("hidden");
