@@ -1675,6 +1675,10 @@ async function loadProjects() {
       console.log("[DEBUG] All files count:", data.debug.all_files_count);
       console.log("[DEBUG] All files:", data.debug.all_files);
       console.log("[DEBUG] Spreadsheets count:", data.debug.spreadsheets_count);
+      console.log("[DEBUG] Service Account Email:", data.debug.service_account_email);
+      if (data.debug.sharing_instructions) {
+        console.log("[DEBUG] ⚠️", data.debug.sharing_instructions);
+      }
       if (data.debug.traceback) {
         console.error("[DEBUG] Server traceback:", data.debug.traceback);
       }

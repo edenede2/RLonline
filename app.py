@@ -312,6 +312,9 @@ def get_projects():
         spreadsheets = list_spreadsheets_in_folder(DRIVE_SERVICE, DRIVE_FOLDER_ID)
         print(f"[DEBUG] Spreadsheets found: {spreadsheets}")
         
+        # Get service account email for sharing instructions
+        service_account_email = CREDS_DICT.get("client_email", "unknown")
+        
         return jsonify({
             "status": "ok", 
             "projects": spreadsheets,
@@ -319,19 +322,26 @@ def get_projects():
                 "folder_id": DRIVE_FOLDER_ID,
                 "all_files_count": len(all_files),
                 "all_files": all_files,
-                "spreadsheets_count": len(spreadsheets)
+                "spreadsheets_count": len(spreadsheets),
+                "service_account_email": service_account_email,
+                "sharing_instructions": f"Share the Google Drive folder with this email: {service_account_email}"
             }
         })
     except Exception as e:
         import traceback
         error_trace = traceback.format_exc()
         print(f"[DEBUG] Error in get_projects: {error_trace}")
+        
+        # Get service account email even on error
+        service_account_email = CREDS_DICT.get("client_email", "unknown")
+        
         return jsonify({
             "status": "error", 
             "message": str(e),
             "debug": {
                 "folder_id": DRIVE_FOLDER_ID,
-                "traceback": error_trace
+                "traceback": error_trace,
+                "service_account_email": service_account_email
             }
         }), 500
 
