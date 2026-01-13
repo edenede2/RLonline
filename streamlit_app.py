@@ -97,7 +97,7 @@ Download the empty spreadsheet template that contains the correct column structu
 """)
 
 # Download link for the template
-template_url = "https://github.com/edenede2/RLonline/raw/main/_EmptyReversalTaskData.xlsx"
+template_url = "https://github.com/edenede2/RLonline/raw/dev/_EmptyReversalTaskData.xlsx"
 st.link_button(
     "📥 Download Empty Template (.xlsx)",
     template_url,
@@ -131,27 +131,8 @@ st.markdown("""
 
 st.divider()
 
-# For Participants Section
-st.header("👤 For Participants")
-
-st.markdown("""
-If you're a participant in this study:
-
-1. You will receive a direct link from your researcher
-2. Enter your Participant ID when prompted
-3. Follow the on-screen instructions
-4. Complete all trials - **do not close the browser during the task**
-
-**Technical Requirements:**
-- Use a modern browser (Chrome, Firefox, Safari, Edge)
-- Stable internet connection
-- Complete the task in one session
-""")
-
-st.divider()
-
 # Data Structure Section
-with st.expander("📁 Data Structure (For Researchers)"):
+with st.expander("📁 Data Structure"):
     st.markdown("""
     The spreadsheet contains the following sheets:
     
@@ -190,6 +171,6 @@ st.divider()
 st.markdown("""
 <div style='text-align: center; color: gray; padding: 20px;'>
     <small>Reversal Learning Task | Developed for Research Purposes</small><br>
-    <small>For technical support, contact the research team</small>
+    <small>For technical support, contact: <a href="mailto:edenede2@gmail.com">edenede2@gmail.com</a></small>
 </div>
 """, unsafe_allow_html=True)
