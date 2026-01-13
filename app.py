@@ -54,6 +54,7 @@ def init_drive_service(creds):
 def list_spreadsheets_in_folder(drive_service, folder_id):
     """
     List all Google Spreadsheets in a specific Drive folder.
+    Supports both regular Drive and Shared Drives.
     Returns list of {id, name} dicts.
     """
     query = f"'{folder_id}' in parents and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false"
@@ -61,7 +62,9 @@ def list_spreadsheets_in_folder(drive_service, folder_id):
         q=query,
         spaces='drive',
         fields='files(id, name)',
-        orderBy='name'
+        orderBy='name',
+        supportsAllDrives=True,
+        includeItemsFromAllDrives=True
     ).execute()
     
     files = results.get('files', [])
@@ -284,17 +287,18 @@ def get_projects():
     try:
         print(f"[DEBUG] Attempting to list files in folder: {DRIVE_FOLDER_ID}")
         
-        # First, try to get folder info to verify access
+        # First, try to get folder info to verify access (with Shared Drive support)
         try:
             folder_info = DRIVE_SERVICE.files().get(
                 fileId=DRIVE_FOLDER_ID,
-                fields='id, name, mimeType'
+                fields='id, name, mimeType, driveId',
+                supportsAllDrives=True
             ).execute()
             print(f"[DEBUG] Folder info: {folder_info}")
         except Exception as folder_err:
             print(f"[DEBUG] Could not get folder info: {folder_err}")
         
-        # List ALL files in the folder first (any type)
+        # List ALL files in the folder first (any type) - with Shared Drive support
         query_all = f"'{DRIVE_FOLDER_ID}' in parents and trashed=false"
         print(f"[DEBUG] Query for all files: {query_all}")
         
@@ -302,7 +306,9 @@ def get_projects():
             q=query_all,
             spaces='drive',
             fields='files(id, name, mimeType)',
-            orderBy='name'
+            orderBy='name',
+            supportsAllDrives=True,
+            includeItemsFromAllDrives=True
         ).execute()
         
         all_files = all_files_result.get('files', [])
@@ -314,6 +320,7 @@ def get_projects():
         
         # Get service account email for sharing instructions
         service_account_email = CREDS_DICT.get("client_email", "unknown")
+
         
         return jsonify({
             "status": "ok", 
