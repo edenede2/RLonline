@@ -13,7 +13,7 @@ from googleapiclient.discovery import build
 
 # Google Drive folder ID extracted from the shared folder URL
 # https://drive.google.com/drive/u/0/folders/1d5b2MuYbUFovp2p1h0QioYET5Jxk3ChL
-DRIVE_FOLDER_ID = os.environ.get("DRIVE_FOLDER_ID", "1d5b2MuYbUFovp2p1h0QioYET5Jxk3ChL")
+DRIVE_FOLDER_ID = os.environ.get("DRIVE_FOLDER_ID", "1R2Wq9u1KRL3Eb8-rnyoG1RCy1t-tGeHN")
 
 def init_google_credentials():
     """
