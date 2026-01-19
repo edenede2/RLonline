@@ -108,7 +108,7 @@ st.markdown("""
 **Step 2️⃣ Create Your Project Spreadsheet**
 
 1. Open the downloaded file in Excel or Google Sheets
-2. **Important:** Upload it to the [shared Google Drive folder](https://drive.google.com/drive/u/0/folders/1d5b2MuYbUFovp2p1h0QioYET5Jxk3ChL)
+2. **Important:** Upload it to the [shared Google Drive folder](https://drive.google.com/drive/u/0/folders/1R2Wq9u1KRL3Eb8-rnyoG1RCy1t-tGeHN)
 3. Rename the file to your project name (e.g., `Study1_Control`, `Fibro_Pilot_2024`)
 4. **Convert to Google Sheets format** (File → Save as Google Sheets)
 
